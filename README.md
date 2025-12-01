@@ -24,8 +24,8 @@ Where:
 | Component | Meaning | Impact on Valuation |
 |-----------|---------|-------------------|
 | LPA | Current earnings per share | Higher earnings = Higher value |
-| 8.5 | Base PE for 0% growth stocks | Baseline multiplier for earnings |
-| 2x | Growth premium (1% growth = +2 PE points) | Higher growth = Exponentially higher value |
+| 8.5 | Base P/L for 0% growth stocks | Baseline multiplier for earnings |
+| 2x | Growth premium (1% growth = +2 P/L points) | Higher growth = Exponentially higher value |
 | y | Current interest rate (SELIC) | Higher rates = Lower valuations (inverse relationship) |
 | z | Average SELIC rate over 10 years | Historical rate baseline for long-term valuation |
 
@@ -140,25 +140,25 @@ Result: Locked in profits at each level
 
 ### Weighted Purchase Price (WPP)
 
-Allocate capital based on how undervalued each stock is, weighted by its Strategic Importance (PE):
+Allocate capital based on how undervalued each stock is, weighted by its Strategic Weight (SW):
 
-$$\text{WPP}_i = \frac{\text{IV}_i}{\text{Price}_i} \times \text{PE}_i$$
+$$\text{WPP}_i = \frac{\text{IV}_i}{\text{Price}_i} \times \text{SW}_i$$
 
 Where:
 - **IV** = Intrinsic Value
 - **Price** = Current Market Price
-- **PE** = Strategic Weight (Peso Estratégico, range: 1-100)
+- **SW** = Strategic Weight (range: 1-100)
 
-The Strategic Weight (PE) represents how important a stock is to your portfolio strategy. Higher PE values indicate stocks you want to prioritize for capital allocation.
+The Strategic Weight (SW) represents how important a stock is to your portfolio strategy. Higher SW values indicate stocks you want to prioritize for capital allocation.
 
 **Example (2 stocks, using Strategic Weights):**
 
 ```
-Stock A: IV = 100, Price = 40, PE = 90 (High Strategic Importance)
+Stock A: IV = 100, Price = 40, SW = 90 (High Strategic Importance)
   Discount Factor = 100/40 = 2.5x
   WPP_A = 2.5 × 90 = 225
 
-Stock B: IV = 50, Price = 20, PE = 50 (Medium Strategic Importance)
+Stock B: IV = 50, Price = 20, SW = 50 (Medium Strategic Importance)
   Discount Factor = 50/20 = 2.5x
   WPP_B = 2.5 × 50 = 125
 ```
