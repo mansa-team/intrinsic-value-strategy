@@ -33,11 +33,13 @@ Where:
 ```
 LPA = R$ 2.78
 x = 15% (CAGR)
-y = 10.5% (SELIC)
+y = 10.5% (Current SELIC)
+z = 9.5% (10-year Average SELIC)
 
-V = 2.78 × (8.5 + 2×15) / 10.5
-V = 2.78 × 38.5 / 10.5
-V = R$ 101.97
+V = (2.78 × (8.5 + 2×15) × 9.5) / 10.5
+V = (2.78 × 38.5 × 9.5) / 10.5
+V = 1,016.79 / 10.5
+V = R$ 96.84
 ```
 
 ### Step 2: Validate Growth (10-Year CAGR)
@@ -71,11 +73,11 @@ Where **m** = Safety Margin (default: 50%)
 
 **Example (continuing above):**
 ```
-V = R$ 101.97
+V = R$ 96.84
 m = 0.50 (50%)
 
-Buy Price = 101.97 × (1 - 0.50) = R$ 50.99
-Sell Price = 101.97 × (1 + 0.50) = R$ 152.96
+Buy Price = 96.84 × (1 - 0.50) = R$ 48.42
+Sell Price = 96.84 × (1 + 0.50) = R$ 145.26
 ```
 
 ### Signal Zones
@@ -83,13 +85,13 @@ Sell Price = 101.97 × (1 + 0.50) = R$ 152.96
 ```
 Price Scale:
 
-R$ 152.96  ├─────────────────────────────────
+R$ 145.26  ├─────────────────────────────────
            │  SELL ZONE (Full Exit)
            │
-R$ 101.97  ├─────────────────────────────────
+R$ 96.84   ├─────────────────────────────────
            │  INTRINSIC VALUE
            │
-R$ 50.99   ├─────────────────────────────────
+R$ 48.42   ├─────────────────────────────────
            │  BUY ZONE (Accumulate)
 ```
 
@@ -122,10 +124,10 @@ For every 17.5% increase above the 50% safety margin, sell 50% of position, loga
 
 **Example:**
 ```
-V = R$ 101.97
+V = R$ 96.84
 Initial position: 1,000 shares
 
-Level 1: Price = R$ 152.96
+Level 1: Price = R$ 145.26
   Sell 500 shares
 
 Level 2: Price = R$ 171.31
