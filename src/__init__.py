@@ -103,7 +103,28 @@ def calculateIntrinsicValue(TICKER, target_date):
     return round(intrinsicValue, 2)
 
 if __name__ == "__main__":
-    safetyMargin = 50
-    
+    safetyMargin = 50 # %
+    maxHoldTime = 3 # years
+
+    profitMarginSpike = 17.5 # %
+    sellWhenPossible = 50 # %
+    # (sell another 50% for each 17.5% spike over the 50% profit safetyMargin)
+
     intrinsicValue = calculateIntrinsicValue('EMBJ3', currentYear)
     print(intrinsicValue)
+
+    # if buyPrice =< price: emitSignal('buy', TICKER)
+    # if trimPrice => price: emitSignal('sellPartially', TICKER) # for every 17,5% increase in the currentMargin above the safetyMargin, sell 50%, logarithimically
+    # if buyPrice < price < trimPrice: emitSignal('keep', TICKER)
+
+    # weighted purchase price (wpp): distribute the dock capital based of the strategic price and the discount factor (iV/price)
+    # wpp($) = pe * iV / price
+
+    # proportional capital distribution (pcd): how much of your dock capital should be allocated to each stock
+    # pcd(%) = wpp / Σwpp
+
+    # calculate the final amount of stocks to buy
+    # avaliableCapital = currentCapital / pcd
+    # floor(avaliableCapital / price) for each stock
+
+    # https://encrypted-tbn3.gstatic.com/licensed-image?q=tbn:ANd9GcQzUKKfhlNERarNN5ZA40UL4iHo2MV6r52GZaYRbeUp1YB0xSggFqskrt6d-fbqDB-iTeA8J9r-zoWiVhJ0_tYvgSia9vnBvpdLtF0LxzzExu5nCLA
