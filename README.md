@@ -10,22 +10,24 @@ Built for the [Mansa](https://github.com/mansa-team) project and designed for th
 
 **Graham's Formula (adapted for Brazil):**
 
-$$V = \frac{\text{LPA} \times (8.5 + 2x)}{y}$$
+$$V = \frac{\text{LPA} \times (8.5 + 2x) \times z}{y}$$
 
 Where:
 - **V** = Intrinsic Value (R$)
 - **LPA** = Earnings Per Share (R$)
 - **x** = 10-year Liquid Profits CAGR (%)
 - **y** = Current SELIC Rate (%)
+- **z** = Average SELIC Rate over the period of 10 years average (%)
 
 **Why these components?**
 
-| Component | Meaning |
-|-----------|---------|
-| LPA | Current earnings per share |
-| 8.5 | Base PE (P/L) for 0% growth stocks |
-| 2x | Growth premium (1% growth = +2 PE points) |
-| y | Current interest rate (discount rate) |
+| Component | Meaning | Impact on Valuation |
+|-----------|---------|-------------------|
+| LPA | Current earnings per share | Higher earnings = Higher value |
+| 8.5 | Base PE for 0% growth stocks | Baseline multiplier for earnings |
+| 2x | Growth premium (1% growth = +2 PE points) | Higher growth = Exponentially higher value |
+| y | Current interest rate (SELIC) | Higher rates = Lower valuations (inverse relationship) |
+| z | Average SELIC rate over 10 years | Historical rate baseline for long-term valuation |
 
 **Example:**
 ```
