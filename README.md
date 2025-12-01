@@ -236,4 +236,4 @@ Stock B: floor(4,444 / 20) = 222 shares
 
 ## License
 
-GNU GENERAL PUBLIC LICENSE MODIFIED v1.0 - Mansa Team. See LICENSE for details.
+GPL 3.0 MODIFIED Mansa Team's License. See LICENSE for details.
