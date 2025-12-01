@@ -170,7 +170,7 @@ Determine what % of total capital each stock gets:
 
 $$\text{PCD}_i = \frac{\text{WPP}_i}{\sum \text{WPP}} \times 100\%$$
 
-$$\text{Capital\_Allocated}_i = \text{PCD}_i \times \text{Total\_Capital}$$
+$$\text{Capital Allocated}_i = \text{PCD}_i \times \text{Total Capital}$$
 
 **Example (continuing above, R$ 10,000 total):**
 ```
@@ -185,7 +185,7 @@ Result: More capital to the more undervalued stock
 
 ### Shares to Buy
 
-$$\text{Shares} = \left\lfloor \frac{\text{Allocated\_Capital}}{\text{Current\_Price}} \right\rfloor$$
+$$\text{Shares} = \left\lfloor \frac{\text{Allocated Capital}}{\text{Current Price}} \right\rfloor$$
 
 **Example (continuing above):**
 ```
