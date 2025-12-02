@@ -4,6 +4,10 @@ A repository dedicated to applying Graham's intrinsic value strategy along with 
 
 Built for the [Mansa](https://github.com/mansa-team) project and designed for the automated wallet management system that will help the user with Buy and Hold strategies, maximizing their returns.
 
+## Results
+
+![Backtest Results](./assets/results.png)
+
 ## The Strategy
 
 ### Step 1: Calculate Intrinsic Value

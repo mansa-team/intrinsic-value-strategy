@@ -9,6 +9,7 @@
     <title>Mansa Team</title>
 
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -182,12 +183,12 @@
             flex: 1;
         }
 
-        .chart-container {
+        .export-container {
             border: 1px solid #1a1a1a;
             border-radius: 8px;
             overflow: hidden;
-            flex: 1;
             margin-bottom: 40px;
+            background: #050505;
         }
 
         .chart {
@@ -202,6 +203,7 @@
             max-width: 1000px;
             margin: 0 auto;
             width: 100%;
+            padding: 20px;
         }
 
         .stat-group {
@@ -266,6 +268,29 @@
             color: #444;
             font-size: 14px;
         }
+
+        #exportContainer {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #000;
+            padding: 40px;
+            z-index: -1;
+            width: 1400px;
+        }
+
+        #exportChart {
+            width: 100%;
+            height: 600px;
+            margin-bottom: 20px;
+        }
+
+        #exportStats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
@@ -290,13 +315,18 @@
             <button class="btn" id="saveChartBtn" onclick="saveChartAsPNG()" disabled>Save as PNG</button>
         </div>
         
-        <div class="chart-container">
+        <div class="export-container">
             <div id="portfolioChart" class="chart">
                 <div class="empty-state">Upload CSV files to view chart</div>
             </div>
         </div>
         
         <div class="stats-container" id="stats"></div>
+    </div>
+
+    <div id="exportContainer">
+        <div id="exportChart"></div>
+        <div id="exportStats"></div>
     </div>
 
     <script>
@@ -385,10 +415,8 @@
             updateUI();
         }
 
-        function updateStats() {
-            const statsDiv = document.getElementById('stats');
-            statsDiv.innerHTML = '';
-            
+        function getStatsData() {
+            const stats = [];
             Object.entries(datasets).forEach(([key, dataset], index) => {
                 const data = dataset.data;
                 const initial = parseFloat(data[0].Portfolio_Value);
@@ -405,25 +433,43 @@
                     if (dd > maxDD) maxDD = dd;
                 }
                 
+                stats.push({
+                    index: index,
+                    name: dataset.name,
+                    initial: initial,
+                    final: final,
+                    returnPct: returnPct,
+                    maxDD: maxDD
+                });
+            });
+            return stats;
+        }
+
+        function updateStats() {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = '';
+            
+            const stats = getStatsData();
+            stats.forEach((stat) => {
                 const group = document.createElement('div');
-                group.className = `stat-group csv${index + 1}`;
+                group.className = `stat-group csv${stat.index + 1}`;
                 group.innerHTML = `
-                    <div class="stat-name">${dataset.name}</div>
+                    <div class="stat-name">${stat.name}</div>
                     <div class="stat-item">
                         <span class="stat-label">Initial</span>
-                        <span class="stat-value">${formatCurrency(initial)}</span>
+                        <span class="stat-value">${formatCurrency(stat.initial)}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Final</span>
-                        <span class="stat-value">${formatCurrency(final)}</span>
+                        <span class="stat-value">${formatCurrency(stat.final)}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Return</span>
-                        <span class="stat-value ${returnPct >= 0 ? 'positive' : 'negative'}">${returnPct}%</span>
+                        <span class="stat-value ${stat.returnPct >= 0 ? 'positive' : 'negative'}">${stat.returnPct}%</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Drawdown</span>
-                        <span class="stat-value negative">${maxDD.toFixed(2)}%</span>
+                        <span class="stat-value negative">${stat.maxDD.toFixed(2)}%</span>
                     </div>
                 `;
                 statsDiv.appendChild(group);
@@ -440,6 +486,10 @@
                 return;
             }
             
+            createChartTraces('portfolioChart');
+        }
+
+        function createChartTraces(elementId) {
             const traces = [];
             Object.entries(datasets).forEach(([key, dataset]) => {
                 const dates = dataset.data.map(d => d.Date);
@@ -489,7 +539,7 @@
                 }
             };
             
-            Plotly.newPlot('portfolioChart', traces, layout, { responsive: true, displayModeBar: false });
+            Plotly.newPlot(elementId, traces, layout, { responsive: true, displayModeBar: false });
         }
 
         function updateSaveButton() {
@@ -497,17 +547,78 @@
             saveBtn.disabled = Object.keys(datasets).length === 0;
         }
 
-        function saveChartAsPNG() {
-            const chartDiv = document.getElementById('portfolioChart');
-            const timestamp = new Date().toISOString().split('T')[0];
-            const filename = `portfolio-comparison-${timestamp}.png`;
+        async function saveChartAsPNG() {
+            const exportContainer = document.getElementById('exportContainer');
+            const exportChartDiv = document.getElementById('exportChart');
+            const exportStatsDiv = document.getElementById('exportStats');
             
-            Plotly.downloadImage(chartDiv, {
-                format: 'png',
-                width: 1200,
-                height: 600,
-                filename: filename
+            // Make container visible
+            exportContainer.style.display = 'block';
+            exportContainer.style.visibility = 'visible';
+            exportContainer.style.opacity = '1';
+            
+            // Clear previous content
+            exportChartDiv.innerHTML = '';
+            exportStatsDiv.innerHTML = '';
+            
+            // Create chart in export container
+            createChartTraces('exportChart');
+            
+            // Wait for Plotly to fully render
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Create stats in export container
+            const stats = getStatsData();
+            stats.forEach((stat) => {
+                const group = document.createElement('div');
+                group.className = `stat-group csv${stat.index + 1}`;
+                group.style.background = '#0a0a0a';
+                group.innerHTML = `
+                    <div class="stat-name">${stat.name}</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Initial</span>
+                        <span class="stat-value">${formatCurrency(stat.initial)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Final</span>
+                        <span class="stat-value">${formatCurrency(stat.final)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Return</span>
+                        <span class="stat-value ${stat.returnPct >= 0 ? 'positive' : 'negative'}">${stat.returnPct}%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Drawdown</span>
+                        <span class="stat-value negative">${stat.maxDD.toFixed(2)}%</span>
+                    </div>
+                `;
+                exportStatsDiv.appendChild(group);
             });
+            
+            // Wait again for stats to render
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Capture as image
+            try {
+                const canvas = await html2canvas(exportContainer, {
+                    backgroundColor: '#000000',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    allowTaint: true
+                });
+                
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().split('T')[0];
+                link.href = canvas.toDataURL('image/png');
+                link.download = `portfolio-comparison-${timestamp}.png`;
+                link.click();
+            } catch (error) {
+                alert('Error saving image: ' + error.message);
+                console.error(error);
+            } finally {
+                exportContainer.style.display = 'none';
+            }
         }
 
         function clearAll() {

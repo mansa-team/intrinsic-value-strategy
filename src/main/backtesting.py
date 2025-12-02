@@ -1,24 +1,16 @@
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from imports import *
 from economics import *
+from imports import *
 
-Portfolio = [
-    {'TICKER': 'ITUB3', 'WEIGHT': 90},
-    {'TICKER': 'PETR3', 'WEIGHT': 88},
-    {'TICKER': 'WEGE3', 'WEIGHT': 87},
-    {'TICKER': 'BBAS3', 'WEIGHT': 85},
-    {'TICKER': 'TOTS3', 'WEIGHT': 85},
-    {'TICKER': 'EGIE3', 'WEIGHT': 80},
-    {'TICKER': 'EQTL3', 'WEIGHT': 80},
-    {'TICKER': 'FRAS3', 'WEIGHT': 77},
-    {'TICKER': 'PSSA3', 'WEIGHT': 76},
-    {'TICKER': 'RADL3', 'WEIGHT': 75},
-    {'TICKER': 'LEVE3', 'WEIGHT': 70},
-    {'TICKER': 'LREN3', 'WEIGHT': 65},
-]
+from typing import Dict, Optional, List
+
+# Constants
+MIN_CASH_FOR_BUY = 10  # Minimum shares worth of cash needed to trigger buy
+PROGRESS_BAR_WIDTH = 40
+MIN_SHARES = 1
 
 def setupSelenium():
     options = webdriver.ChromeOptions()
@@ -97,7 +89,30 @@ def getProfitData(ticker):
         return pd.DataFrame()
 
 class Backtester:
-    def __init__(self, config, portfolio, price_data, lpa_data, profit_data, use_strategy=True):
+    def __init__(
+        self,
+        config: Dict,
+        portfolio: pd.DataFrame,
+        price_data: Dict[str, pd.DataFrame],
+        lpa_data: Dict[str, pd.DataFrame],
+        profit_data: Dict[str, pd.DataFrame],
+        use_strategy: bool = True
+    ):
+        """
+        Initialize Backtester instance
+        
+        Args:
+            config: Configuration dict with keys:
+                   - 'SAFETY_MARGIN': float (e.g., 0.50)
+                   - 'INITIAL_CAPITAL': float (e.g., 10000)
+                   - 'START_DATE': str (e.g., '2016-01-01')
+                   - 'END_DATE': str (e.g., '2024-12-31')
+            portfolio: DataFrame with columns ['TICKER', 'WEIGHT']
+            price_data: Dict mapping ticker -> price DataFrame
+            lpa_data: Dict mapping ticker -> LPA DataFrame
+            profit_data: Dict mapping ticker -> profit DataFrame
+            use_strategy: If True, apply Graham's strategy; else Buy & Hold
+        """
         self.config = config
         self.portfolio = portfolio
         self.use_strategy = use_strategy
@@ -106,16 +121,16 @@ class Backtester:
         self.profit_data = profit_data
         
         self.cash = config['INITIAL_CAPITAL']
-        self.positions = {}
-        self.trades = []
-        self.equity_log = []
-        self.dividends_log = []
-        self.iv_cache = {}
+        self.positions: Dict[str, int] = {}
+        self.trades: List[Dict] = []
+        self.equity_log: List[Dict] = []
+        self.dividends_log: List[Dict] = []
+        self.iv_cache: Dict[str, Dict[str, Optional[float]]] = {}
         
         self._setup_portfolio()
     
-    def _setup_portfolio(self):
-        """Initial equal weight allocation"""
+    def _setup_portfolio(self) -> None:
+        """Perform initial equal weight allocation across portfolio"""
         total_weight = self.portfolio['WEIGHT'].sum()
         print("\n" + "="*70)
         print("PORTFOLIO SETUP".center(70))
@@ -128,7 +143,7 @@ class Backtester:
             start_price = price_df[price_df['Date'] >= self.config['START_DATE']]['Close'].iloc[0]
             shares = int(allocation / start_price)
             
-            if shares > 0:
+            if shares > MIN_SHARES:
                 cost = shares * start_price
                 self.positions[ticker] = shares
                 self.cash -= cost
@@ -136,8 +151,19 @@ class Backtester:
         
         print(f'\nInitial cash: R${self.cash:.2f}\n')
     
-    def _get_iv(self, ticker, date):
-        """Get cached IV or calculate it - cache by date to account for interest rate changes"""
+    def _get_iv(self, ticker: str, date: pd.Timestamp) -> Optional[float]:
+        """
+        Get cached IV or calculate it
+        
+        Cache by date to account for interest rate changes
+        
+        Args:
+            ticker: Stock ticker
+            date: Target date
+        
+        Returns:
+            Intrinsic value or None if calculation fails
+        """
         date_str = date.strftime('%Y-%m-%d')
         
         if ticker not in self.iv_cache:
@@ -147,45 +173,67 @@ class Backtester:
             try:
                 iv = calculateIntrinsicValue(ticker, date, self.profit_data, self.lpa_data)
                 self.iv_cache[ticker][date_str] = iv
-            except:
+            except Exception:
                 self.iv_cache[ticker][date_str] = None
         
         return self.iv_cache[ticker][date_str]
     
-    def _process_dividends(self, ticker, date, price_row):
-        """Reinvest dividends immediately"""
+    def _process_dividends(self, ticker: str, date: pd.Timestamp, price_row: pd.Series) -> None:
+        """
+        Process dividend payment and reinvest immediately
+        
+        Args:
+            ticker: Stock ticker
+            date: Dividend date
+            price_row: Price data row for this date
+        """
         dividend = price_row.get('Dividends', 0)
-        if dividend > 0 and ticker in self.positions:
-            amount = self.positions[ticker] * dividend
-            
-            current_price = price_row['Close']
-            shares_to_buy = int(amount / current_price)
-            
-            if shares_to_buy > 0:
-                cost = shares_to_buy * current_price
-                if self.cash >= cost:
-                    self.positions[ticker] += shares_to_buy
-                    self.cash -= cost
-                    
-                    self.trades.append({
-                        'Date': date,
-                        'Ticker': ticker,
-                        'Action': 'DIVIDEND_REINVEST',
-                        'Shares': shares_to_buy,
-                        'Price': round(current_price, 2),
-                        'Amount': round(cost, 2),
-                    })
-            
-            self.dividends_log.append({
-                'Date': date,
-                'Ticker': ticker,
-                'Shares_Held': self.positions[ticker],
-                'Dividend_Per_Share': round(dividend, 4),
-                'Total_Dividend': round(amount, 2)
-            })
+        if dividend <= 0 or ticker not in self.positions:
+            return
+        
+        dividend_amount = self.positions[ticker] * dividend
+        current_price = price_row['Close']
+        shares_to_buy = int(dividend_amount / current_price)
+        
+        if shares_to_buy > 0:
+            cost = shares_to_buy * current_price
+            if self.cash >= cost:
+                self.positions[ticker] += shares_to_buy
+                self.cash -= cost
+                
+                self.trades.append({
+                    'Date': date,
+                    'Ticker': ticker,
+                    'Action': 'DIVIDEND_REINVEST',
+                    'Shares': shares_to_buy,
+                    'Price': round(current_price, 2),
+                    'Amount': round(cost, 2),
+                })
+        
+        self.dividends_log.append({
+            'Date': date,
+            'Ticker': ticker,
+            'Shares_Held': self.positions[ticker],
+            'Dividend_Per_Share': round(dividend, 4),
+            'Total_Dividend': round(dividend_amount, 2)
+        })
     
-    def _execute_sell(self, ticker, date, current_price, iv):
-        """Execute sell signal with partial sell levels"""
+    def _execute_sell(
+        self,
+        ticker: str,
+        date: pd.Timestamp,
+        current_price: float,
+        iv: float
+    ) -> None:
+        """
+        Execute sell signal with partial sell levels
+        
+        Args:
+            ticker: Stock to sell
+            date: Transaction date
+            current_price: Current market price
+            iv: Intrinsic value
+        """
         if ticker not in self.positions or self.positions[ticker] <= 0:
             return
         
@@ -204,7 +252,6 @@ class Backtester:
                     if self.positions[ticker] <= 0:
                         del self.positions[ticker]
                     
-                    profit_margin = level['profit_margin']
                     self.trades.append({
                         'Date': date,
                         'Ticker': ticker,
@@ -212,13 +259,23 @@ class Backtester:
                         'Shares': shares,
                         'Price': round(current_price, 2),
                         'IV': round(iv, 2),
-                        'Profit_Margin': profit_margin,
+                        'Profit_Margin': level['profit_margin'],
                         'Level': level['level']
                     })
                 break
     
-    def _execute_buys(self, buy_signals, date):
-        """Execute buy signals using WPP allocation"""
+    def _execute_buys(
+        self,
+        buy_signals: Dict[str, Dict],
+        date: pd.Timestamp
+    ) -> None:
+        """
+        Execute buy signals using WPP allocation
+        
+        Args:
+            buy_signals: Dict of {ticker: signal_data}
+            date: Transaction date
+        """
         if not buy_signals or self.cash <= 0:
             return
         
@@ -250,7 +307,69 @@ class Backtester:
                         'Allocation': round(allocation_amount, 2)
                     })
     
-    def backtest(self):
+    def _print_progress(self, day_idx: int, total_days: int, equity: float) -> None:
+        """Print progress bar with current equity"""
+        progress = (day_idx + 1) / total_days * 100
+        filled = int(PROGRESS_BAR_WIDTH * (day_idx + 1) / total_days)
+        bar = '█' * filled + '░' * (PROGRESS_BAR_WIDTH - filled)
+        print(
+            f'\r[{bar}] {progress:.0f}% | R${equity:10.2f} | Cash: R${self.cash:8.2f}',
+            end='', flush=True
+        )
+    
+    def _calculate_portfolio_value(self, row: pd.Series) -> float:
+        """Calculate current portfolio market value"""
+        return sum(
+            self.positions.get(t, 0) * row.get(t, 0)
+            for t in self.portfolio['TICKER']
+            if not pd.isna(row.get(t))
+        )
+    
+    def _evaluate_trading_signals(self, row: pd.Series, date: pd.Timestamp) -> Dict[str, Dict]:
+        """
+        Evaluate buy/sell signals for all portfolio tickers
+        
+        Returns dict of buy signals for execution
+        """
+        buy_signals = {}
+        
+        for _, p_row in self.portfolio.iterrows():
+            ticker = p_row['TICKER']
+            if pd.isna(row.get(ticker)):
+                continue
+            
+            current_price = row[ticker]
+            iv = self._get_iv(ticker, date)
+            
+            if iv is None or iv <= 0:
+                continue
+            
+            buy_price = calculateBuyPrice(iv, self.config['SAFETY_MARGIN'])
+            sell_price = calculateSellPrice(iv, self.config['SAFETY_MARGIN'])
+            
+            if not buy_price or not sell_price:
+                continue
+            
+            # SELL signal
+            if current_price >= sell_price:
+                self._execute_sell(ticker, date, current_price, iv)
+            
+            # BUY signal
+            elif current_price <= buy_price and self.cash > current_price * MIN_CASH_FOR_BUY:
+                wpp = calculateWPP(iv, current_price, p_row['WEIGHT'])
+                
+                if wpp > 0:
+                    buy_signals[ticker] = {
+                        'iv': iv,
+                        'price': current_price,
+                        'wpp': wpp,
+                        'buy_price': buy_price,
+                    }
+        
+        return buy_signals
+    
+    def backtest(self) -> None:
+        """Execute backtest over entire date range"""
         # Merge price data
         merged = None
         for _, row in self.portfolio.iterrows():
@@ -272,15 +391,10 @@ class Backtester:
         
         for day_idx, (_, row) in enumerate(merged.iterrows()):
             date = row['Date']
-            progress = (day_idx + 1) / len(merged) * 100
             
-            filled = int(40 * (day_idx + 1) / len(merged))
-            bar = '█' * filled + '░' * (40 - filled)
-            
-            portfolio_value = sum(self.positions.get(t, 0) * row.get(t, 0) for t in self.portfolio['TICKER'] if not pd.isna(row.get(t)))
+            portfolio_value = self._calculate_portfolio_value(row)
             equity = self.cash + portfolio_value
-            
-            print(f'\r[{bar}] {progress:.0f}% | R${equity:10.2f} | Cash: R${self.cash:8.2f}', end='', flush=True)
+            self._print_progress(day_idx, len(merged), equity)
             
             # Process dividends
             for _, p_row in self.portfolio.iterrows():
@@ -292,46 +406,12 @@ class Backtester:
             
             # Apply Graham's Strategy
             if self.use_strategy:
-                buy_signals = {}
-                
-                for _, p_row in self.portfolio.iterrows():
-                    ticker = p_row['TICKER']
-                    if pd.isna(row.get(ticker)):
-                        continue
-                    
-                    current_price = row[ticker]
-                    iv = self._get_iv(ticker, date)
-                    
-                    if iv is None or iv <= 0:
-                        continue
-                    
-                    buy_price = calculateBuyPrice(iv, self.config['SAFETY_MARGIN'])
-                    sell_price = calculateSellPrice(iv, self.config['SAFETY_MARGIN'])
-                    
-                    if not buy_price or not sell_price:
-                        continue
-                    
-                    # SELL signal
-                    if current_price >= sell_price:
-                        self._execute_sell(ticker, date, current_price, iv)
-                    
-                    # BUY signal
-                    elif current_price <= buy_price and self.cash > current_price * 10:
-                        wpp = calculateWPP(iv, current_price, p_row['WEIGHT'])
-                        
-                        if wpp > 0:
-                            buy_signals[ticker] = {
-                                'iv': iv,
-                                'price': current_price,
-                                'wpp': wpp,
-                                'buy_price': buy_price,
-                            }
-                
+                buy_signals = self._evaluate_trading_signals(row, date)
                 if buy_signals:
                     self._execute_buys(buy_signals, date)
             
             # Log daily equity
-            portfolio_value = sum(self.positions.get(t, 0) * row.get(t, 0) for t in self.portfolio['TICKER'] if not pd.isna(row.get(t)))
+            portfolio_value = self._calculate_portfolio_value(row)
             self.equity_log.append({
                 'Date': date,
                 'Cash': round(self.cash, 2),
@@ -341,7 +421,14 @@ class Backtester:
         
         print("\n" + "="*70 + "\n")
     
-    def get_results(self):
+    def get_results(self) -> Optional[Dict]:
+        """
+        Compile backtest results
+        
+        Returns:
+            Dict with keys: equity_curve, trades, dividends, final_equity,
+                          total_return, total_dividends, num_trades
+        """
         equity_df = pd.DataFrame(self.equity_log)
         trades_df = pd.DataFrame(self.trades) if self.trades else pd.DataFrame()
         dividends_df = pd.DataFrame(self.dividends_log) if self.dividends_log else pd.DataFrame()
@@ -362,65 +449,3 @@ class Backtester:
             'total_dividends': total_dividends,
             'num_trades': len(trades_df),
         }
-
-if __name__ == "__main__":
-    config = {
-        'SAFETY_MARGIN': 0.50,
-        'INITIAL_CAPITAL': 10000,
-        'START_DATE': '2016-01-01',
-        'END_DATE': '2024-12-31',
-    }
-    
-    portfolio = pd.DataFrame(Portfolio)
-    
-    print("="*70)
-    print("LOADING DATA".center(70))
-    print("="*70)
-    
-    price_data = {t: getPriceData(t) for t in portfolio['TICKER']}
-    lpa_data = {t: getLPAData(t) for t in portfolio['TICKER']}
-    profit_data = {t: getProfitData(t) for t in portfolio['TICKER']}
-    
-    # Strategy Backtest
-    print("\n" + "█"*70)
-    print("GRAHAM'S VALUE STRATEGY BACKTEST".center(70))
-    print("█"*70)
-    bt_strat = Backtester(config, portfolio, price_data, lpa_data, profit_data, use_strategy=True)
-    bt_strat.backtest()
-    results_strat = bt_strat.get_results()
-    
-    # Buy & Hold Backtest
-    print("\n" + "█"*70)
-    print("BUY & HOLD BACKTEST".center(70))
-    print("█"*70)
-    bt_hold = Backtester(config, portfolio, price_data, lpa_data, profit_data, use_strategy=False)
-    bt_hold.backtest()
-    results_hold = bt_hold.get_results()
-    
-    # Results Comparison
-    if results_strat and results_hold:
-        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
-        print("\n" + "█"*70)
-        print("BACKTEST COMPARISON".center(70))
-        print("█"*70)
-        
-        print(f"\n{'METRIC':<30} | {'STRATEGY':<15} | {'BUY & HOLD':<15} | {'DIFFERENCE':<15}")
-        print("-" * 80)
-        print(f"{'Final Equity':<30} | R${results_strat['final_equity']:>13.2f} | R${results_hold['final_equity']:>13.2f} | R${results_strat['final_equity'] - results_hold['final_equity']:>13.2f}")
-        print(f"{'Total Return':<30} | {results_strat['total_return']:>14.2f}% | {results_hold['total_return']:>14.2f}% | {results_strat['total_return'] - results_hold['total_return']:>14.2f}%")
-        print(f"{'Number of Trades':<30} | {results_strat['num_trades']:>15} | {results_hold['num_trades']:>15} | {results_strat['num_trades'] - results_hold['num_trades']:>15}")
-        print(f"{'Total Dividends':<30} | R${results_strat['total_dividends']:>13.2f} | R${results_hold['total_dividends']:>13.2f} |")
-        print("█"*70)
-        
-        # Export results
-        results_strat['equity_curve'].to_csv(f'equity_STRATEGY_{ts}.csv', index=False)
-        results_hold['equity_curve'].to_csv(f'equity_BUYHOLD_{ts}.csv', index=False)
-        
-        if not results_strat['trades'].empty:
-            results_strat['trades'].to_csv(f'trades_STRATEGY_{ts}.csv', index=False)
-        
-        if not results_hold['dividends'].empty:
-            results_hold['dividends'].to_csv(f'dividends_{ts}.csv', index=False)
-        
-        print(f"\n✓ Results exported to CSV files")
