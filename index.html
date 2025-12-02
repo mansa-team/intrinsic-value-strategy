@@ -106,9 +106,18 @@
             font-weight: 600;
             transition: all 0.2s;
 
-            & :hover {
+            &:hover {
                 border-color: #555;
                 background: rgba(255, 255, 255, 0.03);
+            }
+
+            &:active {
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
             }
         }
 
@@ -157,6 +166,20 @@
             &:hover {
                 opacity: 1;
             }
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .chart-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            flex: 1;
         }
 
         .chart-container {
@@ -258,10 +281,14 @@
                 <input type="file" id="csvFiles" accept=".csv" multiple onchange="loadAllFiles()" />
                 <label class="file-input-label" for="csvFiles">Select Files</label>
             </div>
-            <button class="btn danger" onclick="clearAll()">Clear</button>
+            <button class="btn" onclick="clearAll()">Clear</button>
         </div>
         
         <div class="file-list" id="fileList"></div>
+        
+        <div class="chart-header">
+            <button class="btn" id="saveChartBtn" onclick="saveChartAsPNG()" disabled>Save as PNG</button>
+        </div>
         
         <div class="chart-container">
             <div id="portfolioChart" class="chart">
@@ -332,6 +359,7 @@
             updateFileList();
             updateStats();
             renderChart();
+            updateSaveButton();
         }
 
         function updateFileList() {
@@ -462,6 +490,24 @@
             };
             
             Plotly.newPlot('portfolioChart', traces, layout, { responsive: true, displayModeBar: false });
+        }
+
+        function updateSaveButton() {
+            const saveBtn = document.getElementById('saveChartBtn');
+            saveBtn.disabled = Object.keys(datasets).length === 0;
+        }
+
+        function saveChartAsPNG() {
+            const chartDiv = document.getElementById('portfolioChart');
+            const timestamp = new Date().toISOString().split('T')[0];
+            const filename = `portfolio-comparison-${timestamp}.png`;
+            
+            Plotly.downloadImage(chartDiv, {
+                format: 'png',
+                width: 1200,
+                height: 600,
+                filename: filename
+            });
         }
 
         function clearAll() {

@@ -4,136 +4,157 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imports import *
 
-#
-#$ SELIC dataframe retireval
-#
+# Load SELIC data
 selic_df = requests.get('https://api.bcb.gov.br/dados/serie/bcdata.sgs.4189/dados?formato=json')
 selic_df = pd.DataFrame(selic_df.json())
-selic_df = selic_df.astype({'data': 'datetime64[ns]', 'valor': 'float64'})
+selic_df['data'] = pd.to_datetime(selic_df['data'], format='%d/%m/%Y')
+selic_df['valor'] = selic_df['valor'].astype('float64')
+selic_df = selic_df.sort_values('data').reset_index(drop=True)
 
-#
-#$ Fundamentalist Economic Analysis
-#
 def getInterestRates(date):
-    global selic_df
-
-    if selic_df is None:
-        return None, None
-
-    # Filter data up to target date
-    selic_filtered = selic_df[selic_df['data'] <= date]
+    """
+    Get current SELIC rate (y) and 10-year average SELIC rate (z)
     
+    Args:
+        date: datetime object for the target date
+    
+    Returns: 
+        (y, z) as decimals (0.105 = 10.5%)
+        y = Current SELIC rate on or before target date
+        z = Average SELIC rate over the 10 years preceding target date
+    """
+    global selic_df
+    
+    if selic_df is None or len(selic_df) == 0:
+        return None, None
+    
+    # Ensure date is datetime
+    if not isinstance(date, pd.Timestamp):
+        date = pd.Timestamp(date)
+    
+    # Current SELIC rate on or before target date
+    selic_filtered = selic_df[selic_df['data'] <= date]
     if len(selic_filtered) == 0:
         return None, None
     
-    # Current SELIC rate (latest available on or before target date)
-    selic_atual = selic_filtered.iloc[-1]['valor']
-
-    # Average SELIC over 10 years
-    selic_yearly = selic_filtered.set_index('data')
-    selic_yearly = selic_yearly.groupby(pd.Grouper(freq='YE'))['valor'].mean()
+    y = selic_filtered.iloc[-1]['valor'] / 100  # Convert to decimal
     
-    selic_yearly = selic_yearly.reset_index()
-    selic_yearly['ano'] = selic_yearly['data'].dt.year
-    selic_yearly = selic_yearly[['ano', 'valor']]
-
-    target_year = date.year
-    selic_10y = selic_yearly[selic_yearly['ano'] >= target_year - 10]['valor'].mean()
-
-    return selic_atual, selic_10y
-
-def calculateProfitCAGR(TICKER, date):
-    response = requests.get(f'http://{Config.STOCKS_API["HOST"]}:{Config.STOCKS_API["PORT"]}/api/historical?search={TICKER}&fields=LUCRO%20LIQUIDO')
-
-    if response.status_code == 200:
-        data = response.json()
-        data = data['data'][0]
-        
-        ticker = data['TICKER']
-        nome = data['NOME']
-
-        rows = []
-        for key, value in data.items():
-            if key.startswith('LUCRO LIQUIDO'):
-                ano = int(key.split()[-1])
-                if ano <= date.year - 1:
-                    lucro = value
-                    rows.append({'TICKER': ticker, 'NOME': nome, 'ANO': ano, 'LUCRO LIQUIDO': lucro})
-
-        df = pd.DataFrame(rows)
-        df = df.sort_values('ANO').reset_index(drop=True)
-        
-        df_10y = df.tail(10)
-        
-        if len(df_10y) < 10:
-            return None
-        
-        if df_10y['LUCRO LIQUIDO'].isnull().any() or (df_10y['LUCRO LIQUIDO'] <= 0).any():
-            return None
-        
-        lucro_inicial = df_10y.iloc[0]['LUCRO LIQUIDO']
-        lucro_final = df_10y.iloc[-1]['LUCRO LIQUIDO']
-        n = len(df_10y) - 1
-        
-        cagr = ((lucro_final / lucro_inicial) ** (1 / n) - 1) * 100
-        
-        return round(cagr, 2)
+    # 10-year average SELIC (from 10 years before target date to target date)
+    ten_years_ago = pd.Timestamp(date.year - 10, date.month, date.day)
+    selic_10y = selic_df[(selic_df['data'] >= ten_years_ago) & (selic_df['data'] <= date)]
     
-    return None
+    if len(selic_10y) == 0:
+        return y, y
+    
+    z = selic_10y['valor'].mean() / 100
+    
+    return y, z
 
-def getCurrentLPA(TICKER):
-    response = requests.get(f'http://{Config.STOCKS_API["HOST"]}:{Config.STOCKS_API["PORT"]}/api/fundamental?search={TICKER}&fields=LPA')
-            
-    if response.status_code == 200:
-        api_data = response.json()
-
-        if len(api_data['data']) > 0:
-            lpa = api_data['data'][0]['LPA']
-            return lpa
-        else:
-            return None
-
-def calculateIntrinsicValue(TICKER, date):
+def calculateCAGR(profit_list, year_list):
     """
-    V = (LPA * (8.5 + 2 * (x / 100)) * z) / y
+    Calculate Compound Annual Growth Rate
     
-    Where:
-    - x = 10-year Liquid Profit CAGR (%)
-    - y = Current SELIC Rate (%)
-    - z = Average SELIC Rate over 10 years (%)
-    - LPA = Earnings Per Share (R$)
+    CAGR = (Profit_Final / Profit_Initial)^(1/n) - 1
+    
+    Args:
+        profit_list: list of profit values in chronological order
+        year_list: corresponding list of years
+    
+    Returns:
+        CAGR as decimal (0.10 = 10%)
     """
-
-    x = calculateProfitCAGR(TICKER, date)
-    y, z = getInterestRates(date)
-    lpa = getCurrentLPA(TICKER)
-
-    if x is None or y is None or z is None or lpa is None:
+    if len(profit_list) < 2 or any(p <= 0 for p in profit_list):
         return None
     
-    intrinsicValue = lpa * (8.5 + 2*(x / 100)) * z / y
+    initial_profit = profit_list[0]
+    final_profit = profit_list[-1]
+    
+    # Calculate actual years elapsed
+    years_elapsed = year_list[-1] - year_list[0]
+    
+    if years_elapsed <= 0:
+        return None
+    
+    cagr = (final_profit / initial_profit) ** (1 / years_elapsed) - 1
+    return cagr
 
-    return round(intrinsicValue, 2)
+def calculateIntrinsicValue(ticker, date, profit_data, lpa_data):
+    """
+    Calculate Graham's Intrinsic Value
+    
+    V = (LPA × (8.5 + 2x) × z) / y
+    
+    Where:
+    - LPA = Earnings Per Share (R$) for the target year
+    - x = 10-year Liquid Profits CAGR (as decimal)
+    - y = Current SELIC Rate (as decimal) on the target date
+    - z = Average SELIC Rate over 10 years (as decimal)
+    
+    Args:
+        ticker: stock ticker
+        date: target date (datetime)
+        profit_data: dict {ticker: DataFrame with 'ANO' and 'LUCRO LIQUIDO' columns}
+        lpa_data: dict {ticker: DataFrame with 'year' and 'value' columns}
+    
+    Returns:
+        Intrinsic Value (R$) or None if calculation fails
+    """
+    try:
+        # Validate profit data exists
+        if ticker not in profit_data or profit_data[ticker].empty:
+            return None
+        
+        df_profit = profit_data[ticker].copy()
+        df_profit = df_profit[df_profit['ANO'] < date.year].sort_values('ANO')
+        
+        # Need minimum 2 data points (but ideally 10+ years for reliability)
+        if len(df_profit) < 2:
+            return None
+        
+        # Calculate CAGR from available history
+        profit_values = df_profit['LUCRO LIQUIDO'].tolist()
+        year_values = df_profit['ANO'].tolist()
+        x = calculateCAGR(profit_values, year_values)
+        
+        if x is None:
+            return None
+        
+        # Get SELIC rates for the specific date
+        y, z = getInterestRates(date)
+        if y is None or z is None or y == 0:
+            return None
+        
+        # Get LPA for target year
+        if ticker not in lpa_data or lpa_data[ticker].empty:
+            return None
+        
+        df_lpa = lpa_data[ticker]
+        lpa_values = df_lpa[df_lpa['year'] == date.year]['value']
+        
+        if lpa_values.empty or lpa_values.iloc[0] <= 0:
+            return None
+        
+        lpa = lpa_values.iloc[0]
+        
+        # Apply Graham's Formula: V = (LPA × (8.5 + 2x) × z) / y
+        iv = (lpa * (8.5 + 2 * x) * z) / y
+        
+        return round(iv, 2) if iv > 0 else None
+    
+    except Exception as e:
+        return None
 
-#
-#$ Trade signals
-#
 def calculateBuyPrice(intrinsic_value, safety_margin):
     """
     Calculate Buy Price with Safety Margin
     
-    Buy Price = V x (1 - m)
+    Buy Price = V × (1 - m)
     
     Where:
     - V = Intrinsic Value
-    - m = Safety Margin (default: 50%)
-    
-    Example:
-        V = R$ 96.84
-        m = 0.50
-        Buy Price = 96.84 x 0.50 = R$ 48.42
+    - m = Safety Margin (0.50 = 50%)
     """
-    if intrinsic_value is None:
+    if intrinsic_value is None or intrinsic_value <= 0:
         return None
     
     return round(intrinsic_value * (1 - safety_margin), 2)
@@ -142,136 +163,134 @@ def calculateSellPrice(intrinsic_value, safety_margin):
     """
     Calculate Sell Price with Safety Margin
     
-    Sell Price = V x (1 + m)
-    
-    Example:
-        V = R$ 96.84
-        m = 0.50
-        Sell Price = 96.84 x 1.50 = R$ 145.26
+    Sell Price = V × (1 + m)
     """
-    if intrinsic_value is None:
+    if intrinsic_value is None or intrinsic_value <= 0:
         return None
     
     return round(intrinsic_value * (1 + safety_margin), 2)
 
 def generateTradingSignal(current_price, intrinsic_value, safety_margin):
     """
-    Generate Trading Signal based on Price and Intrinsic Value
-
-    Sell Price  ├─────────────────────────────────
-                │  SELL ZONE (Full Exit)
-                │
-    IV          ├─────────────────────────────────
-                │  INTRINSIC VALUE
-                │
-    Buy Price   ├─────────────────────────────────
-                │  BUY ZONE (Accumulate)
+    Generate Trading Signal
     
-    Rules:
-    - If Current_Price <= Buy_Price: Signal = BUY
-    - If Buy_Price < Current_Price < Sell_Price: Signal = KEEP
-    - If Current_Price >= Sell_Price: Signal = SELL
-    
-    Returns: 'BUY', 'KEEP', 'SELL', or 'SKIP'
+    Returns: 'BUY', 'HOLD', or 'SELL'
     """
-    if intrinsic_value is None or intrinsic_value <= 0:
-        return 'SKIP'
+    if intrinsic_value is None or intrinsic_value <= 0 or current_price <= 0:
+        return 'HOLD'
     
     buy_price = calculateBuyPrice(intrinsic_value, safety_margin)
     sell_price = calculateSellPrice(intrinsic_value, safety_margin)
+    
+    if buy_price is None or sell_price is None:
+        return 'HOLD'
     
     if current_price <= buy_price:
         return 'BUY'
     elif current_price >= sell_price:
         return 'SELL'
     else:
-        return 'KEEP'
+        return 'HOLD'
 
-def calculatePartialSellLevels():
+def calculatePartialSellLevels(intrinsic_value, safety_margin=0.50):
     """
-    Get Partial Sell Strategy Levels
+    Generate Partial Sell Strategy Levels dynamically
     
-    For every 17.5% increase above the 50% safety margin, sell 50% of position, logarithmically.
+    For every 17.5% increase above the base sell price (V × (1 + m)),
+    sell 50% of remaining position, capped at full exit.
     
-    Sell Levels:
-    | Level | Trigger Price | Profit Margin | Action |
-    |-------|---------------|---------------|--------|
-    | 1     | V x 1.50      | +50%          | Sell 50% |
-    | 2     | V x 1.675     | +67.5%        | Sell 50% of remaining |
-    | 3     | V x 1.85      | +85%          | Sell 50% of remaining |
-    | 4     | V x 2.025     | +102.5%       | Sell 50% of remaining |
-    | 5     | V x 2.20      | +120%         | Sell remaining |
+    Args:
+        intrinsic_value: the stock's intrinsic value
+        safety_margin: safety margin (default 0.50 = 50%)
     
-    Example:
-        V = R$ 96.84
-        Initial position: 1,000 shares
-        
-        Level 1: Price = R$ 145.26 → Sell 500 shares
-        Level 2: Price = R$ 171.31 → Sell 250 shares
-    
-    Returns: list of dicts with level configuration
+    Returns: 
+        list of dicts with level configuration
     """
-    return [
-        {'level': 1, 'profit': 0.50, 'price_mult': 1.50, 'sell_pct': 0.50},
-        {'level': 2, 'profit': 0.675, 'price_mult': 1.675, 'sell_pct': 0.50},
-        {'level': 3, 'profit': 0.85, 'price_mult': 1.85, 'sell_pct': 0.50},
-        {'level': 4, 'profit': 1.025, 'price_mult': 2.025, 'sell_pct': 0.50},
-        {'level': 5, 'profit': 1.20, 'price_mult': 2.20, 'sell_pct': 1.00},
+    if intrinsic_value is None or intrinsic_value <= 0:
+        return []
+    
+    base_sell_price = intrinsic_value * (1 + safety_margin)
+    levels = []
+    increment = 0.175  # 17.5% increment
+    
+    # Level 1: 50% above base (V × 1.50)
+    # Level 2: 67.5% above base (V × 1.675)
+    # Level 3: 85% above base (V × 1.85)
+    # Level 4: 102.5% above base (V × 2.025)
+    # Level 5: 120% above base (V × 2.20) - Full exit
+    
+    profit_margins = [
+        (1, 1.50, 0.50),
+        (2, 1.675, 0.50),
+        (3, 1.85, 0.50),
+        (4, 2.025, 0.50),
+        (5, 2.20, 1.00),
     ]
+    
+    for level, multiplier, sell_pct in profit_margins:
+        trigger_price = intrinsic_value * multiplier
+        levels.append({
+            'level': level,
+            'trigger_price': round(trigger_price, 2),
+            'profit_margin': multiplier,
+            'sell_pct': sell_pct
+        })
+    
+    return levels
 
-#
-#$ Portifolio Management
-#
 def calculateWPP(intrinsic_value, current_price, strategic_weight):
     """
     Calculate Weighted Purchase Price (WPP)
     
-    WPP = (IV / Price) x SW
-    
-    Allocate capital based on how undervalued each stock is, weighted by Strategic Weight.
+    WPP = (IV / Price) × SW
     
     Where:
     - IV = Intrinsic Value
     - Price = Current Market Price
     - SW = Strategic Weight (1-100)
     
-    Example:
-        Stock A: IV = 100, Price = 40, SW = 90
-        Discount Factor = 100/40 = 2.5x
-        WPP_A = 2.5 x 90 = 225
-        
-        Stock B: IV = 50, Price = 20, SW = 50
-        Discount Factor = 50/20 = 2.5x
-        WPP_B = 2.5 x 50 = 125
+    Args:
+        intrinsic_value: stock's intrinsic value
+        current_price: current market price
+        strategic_weight: portfolio weight (1-100)
+    
+    Returns:
+        WPP score (higher = more undervalued)
     """
-    if current_price <= 0:
+    if intrinsic_value is None or intrinsic_value <= 0 or current_price <= 0:
         return 0
     
     discount_factor = intrinsic_value / current_price
-    return round(discount_factor * strategic_weight, 2)
+    wpp = round(discount_factor * strategic_weight, 4)
+    return wpp
 
-def allocateCapitalByWPP(wpp_dict, total_capital):
+def allocateCapitalByWPP(buy_signals, total_capital):
     """
     Proportional Capital Distribution (PCD)
     
-    Determine what % of total capital each stock gets:
+    Allocate capital based on WPP values proportionally
     
-    PCD_i = (WPP_i / Σ WPP) x 100%
-    Capital_Allocated_i = PCD_i x Total_Capital
+    Args:
+        buy_signals: dict {ticker: {'iv': ..., 'price': ..., 'wpp': ..., ...}}
+        total_capital: float, available cash
     
-    Example (R$ 10,000 total):
-        Stock A WPP = 225: PCD = 55.56%, Capital = R$ 5,556
-        Stock B WPP = 125: PCD = 44.44%, Capital = R$ 4,444
-    
-    Returns: dict with ticker -> allocated capital
+    Returns:
+        dict {ticker: allocated_amount}
     """
+    if not buy_signals or total_capital <= 0:
+        return {}
+    
+    # Extract WPP values
+    wpp_dict = {ticker: data.get('wpp', 0) for ticker, data in buy_signals.items()}
     total_wpp = sum(wpp_dict.values())
-    if total_wpp == 0:
-        return {ticker: 0 for ticker in wpp_dict.keys()}
     
-    allocation = {}
+    if total_wpp <= 0:
+        return {}
+    
+    # Allocate capital proportionally to WPP
+    allocations = {}
     for ticker, wpp in wpp_dict.items():
-        pcd = (wpp / total_wpp) * 100
-        allocation[ticker] = (pcd / 100) * total_capital
+        allocation_pct = (wpp / total_wpp) * 100
+        allocations[ticker] = (allocation_pct / 100) * total_capital
     
-    return allocation
+    return allocations
