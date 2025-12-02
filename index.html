@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/x-icon" href="assets/logo.png">
+
+    <title>Mansa Team</title>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+
+            scrollbar-width: none;
+            user-select: none;
+            cursor: default;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+        }
+
+        .container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 50px 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            
+            h1 {
+                font-size: 28px;
+                font-weight: 700;
+                margin-bottom: 6px;
+                letter-spacing: -0.5px;
+            }
+
+            p {
+                font-size: 13px;
+                color: #777;
+            }
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            max-width: 300px;
+
+            input[type="file"] {
+                position: absolute;
+                left: -9999px;
+            }
+        }
+
+        .file-input-label {
+            display: block;
+            width: 100%;
+            padding: 14px 24px;
+            border: 2px solid #0d0;
+            border-radius: 8px;
+            background: rgba(0, 221, 0, 0.08);
+            color: #0d0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 0.3px;
+            transition: background 0.2s;
+
+            &:active {
+                background: rgba(0, 221, 0, 0.15);
+            }
+        }
+
+        .btn {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px 24px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+
+            & :hover {
+                border-color: #555;
+                background: rgba(255, 255, 255, 0.03);
+            }
+        }
+
+        .file-list {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 35px;
+            min-height: 30px;
+        }
+
+        .file-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border: 1px solid;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .file-badge.csv1 { border-color: #0d0; }
+        .file-badge.csv2 { border-color: #09f; }
+        .file-badge.csv3 { border-color: #fa0; }
+
+        .color-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .csv1 .color-dot { background: #0d0; }
+        .csv2 .color-dot { background: #09f; }
+        .csv3 .color-dot { background: #fa0; }
+
+        .close-btn {
+            cursor: pointer;
+            opacity: 0.4;
+            font-size: 14px;
+            line-height: 1;
+            transition: opacity 0.2s;
+            margin-left: 2px;
+
+            &:hover {
+                opacity: 1;
+            }
+        }
+
+        .chart-container {
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            flex: 1;
+            margin-bottom: 40px;
+        }
+
+        .chart {
+            width: 100%;
+            height: 550px;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .stat-group {
+            border: 1px solid #1a1a1a;
+            border-left: 2px solid;
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 0.2s;
+
+            &:hover {
+                border-color: #2a2a2a;
+                background: rgba(255, 255, 255, 0.01);
+            }
+        }
+
+        .stat-group.csv1 { border-left-color: #0d0; }
+        .stat-group.csv2 { border-left-color: #09f; }
+        .stat-group.csv3 { border-left-color: #fa0; }
+
+        .stat-name {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 9px;
+            font-size: 12px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        .stat-label {
+            color: #555;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-value.positive {
+            color: #0d0;
+        }
+
+        .stat-value.negative {
+            color: #f44;
+        }
+
+        .empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #444;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="assets/logo.png">
+            <h1>Portfolio Backtester</h1>
+            <p>Compare investment strategies</p>
+        </div>
+        
+        <div class="controls">
+            <div class="file-input-wrapper">
+                <input type="file" id="csvFiles" accept=".csv" multiple onchange="loadAllFiles()" />
+                <label class="file-input-label" for="csvFiles">Select Files</label>
+            </div>
+            <button class="btn danger" onclick="clearAll()">Clear</button>
+        </div>
+        
+        <div class="file-list" id="fileList"></div>
+        
+        <div class="chart-container">
+            <div id="portfolioChart" class="chart">
+                <div class="empty-state">Upload CSV files to view chart</div>
+            </div>
+        </div>
+        
+        <div class="stats-container" id="stats"></div>
+    </div>
+
+    <script>
+        let datasets = {};
+        const colors = ['#00dd00', '#0099ff', '#ffaa00'];
+
+        function loadAllFiles() {
+            const input = document.getElementById('csvFiles');
+            const files = input.files;
+            datasets = {};
+            let filesToLoad = files.length;
+            
+            if (filesToLoad === 0) {
+                updateUI();
+                return;
+            }
+            
+            if (filesToLoad > 3) {
+                alert('Maximum 3 files allowed');
+                input.value = '';
+                return;
+            }
+            
+            Array.from(files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        datasets[`csv${index + 1}`] = {
+                            data: parseCSV(e.target.result),
+                            name: file.name.replace('.csv', ''),
+                            color: colors[index]
+                        };
+                        filesToLoad--;
+                        if (filesToLoad === 0) updateUI();
+                    } catch (error) {
+                        alert('Error parsing ' + file.name);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function parseCSV(csv) {
+            const lines = csv.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header.trim()] = values[index]?.trim();
+                });
+                if (row.Date) data.push(row);
+            }
+            return data;
+        }
+
+        function updateUI() {
+            updateFileList();
+            updateStats();
+            renderChart();
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            Object.entries(datasets).forEach(([key, dataset], index) => {
+                const badge = document.createElement('div');
+                badge.className = `file-badge csv${index + 1}`;
+                badge.innerHTML = `
+                    <div class="color-dot"></div>
+                    <span>${dataset.name}</span>
+                    <span class="close-btn" onclick="removeFile('${key}')">×</span>
+                `;
+                fileList.appendChild(badge);
+            });
+        }
+
+        function removeFile(key) {
+            delete datasets[key];
+            const input = document.getElementById('csvFiles');
+            input.value = '';
+            updateUI();
+        }
+
+        function updateStats() {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = '';
+            
+            Object.entries(datasets).forEach(([key, dataset], index) => {
+                const data = dataset.data;
+                const initial = parseFloat(data[0].Portfolio_Value);
+                const final = parseFloat(data[data.length - 1].Portfolio_Value);
+                const gain = final - initial;
+                const returnPct = ((gain / initial) * 100).toFixed(2);
+                
+                let maxDD = 0;
+                let peak = initial;
+                for (let point of data) {
+                    const val = parseFloat(point.Portfolio_Value);
+                    if (val > peak) peak = val;
+                    const dd = ((peak - val) / peak * 100);
+                    if (dd > maxDD) maxDD = dd;
+                }
+                
+                const group = document.createElement('div');
+                group.className = `stat-group csv${index + 1}`;
+                group.innerHTML = `
+                    <div class="stat-name">${dataset.name}</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Initial</span>
+                        <span class="stat-value">${formatCurrency(initial)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Final</span>
+                        <span class="stat-value">${formatCurrency(final)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Return</span>
+                        <span class="stat-value ${returnPct >= 0 ? 'positive' : 'negative'}">${returnPct}%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Drawdown</span>
+                        <span class="stat-value negative">${maxDD.toFixed(2)}%</span>
+                    </div>
+                `;
+                statsDiv.appendChild(group);
+            });
+        }
+
+        function formatCurrency(value) {
+            return 'R$ ' + value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        function renderChart() {
+            if (Object.keys(datasets).length === 0) {
+                document.getElementById('portfolioChart').innerHTML = '<div class="empty-state">Upload CSV files to view chart</div>';
+                return;
+            }
+            
+            const traces = [];
+            Object.entries(datasets).forEach(([key, dataset]) => {
+                const dates = dataset.data.map(d => d.Date);
+                const values = dataset.data.map(d => parseFloat(d.Portfolio_Value));
+                
+                traces.push({
+                    x: dates,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: dataset.name,
+                    line: { 
+                        color: dataset.color, 
+                        width: 2.5,
+                        shape: 'linear'
+                    },
+                    hovertemplate: '<b>%{fullData.name}</b><br>%{x}<br>%{y:$,.0f}<extra></extra>'
+                });
+            });
+            
+            const layout = {
+                paper_bgcolor: '#000000',
+                plot_bgcolor: '#000000',
+                font: { color: '#888888', family: 'Inter, Arial', size: 11 },
+                margin: { t: 15, b: 40, l: 60, r: 25 },
+                xaxis: { 
+                    gridcolor: '#0f0f0f',
+                    showgrid: true,
+                    zeroline: false,
+                    color: '#555555'
+                },
+                yaxis: { 
+                    gridcolor: '#0f0f0f',
+                    tickformat: '$,.0f',
+                    zeroline: false,
+                    color: '#555555'
+                },
+                hovermode: 'x unified',
+                showlegend: true,
+                legend: { 
+                    x: 0.02, 
+                    y: 0.98,
+                    bgcolor: 'rgba(0, 0, 0, 0.9)',
+                    bordercolor: '#1a1a1a',
+                    borderwidth: 1,
+                    font: { size: 11, color: '#aaaaaa' }
+                }
+            };
+            
+            Plotly.newPlot('portfolioChart', traces, layout, { responsive: true, displayModeBar: false });
+        }
+
+        function clearAll() {
+            datasets = {};
+            document.getElementById('csvFiles').value = '';
+            updateUI();
+        }
+    </script>
+</body>
+</html>
