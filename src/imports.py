@@ -4,6 +4,7 @@ import json
 import time
 import threading
 import logging
+from typing import Optional, Tuple, List, Dict
 
 from datetime import datetime
 from dotenv import load_dotenv
@@ -14,7 +15,6 @@ import numpy as np
 import yfinance as yf
 
 import requests
-import matplotlib
 
 import selenium
 from selenium import webdriver

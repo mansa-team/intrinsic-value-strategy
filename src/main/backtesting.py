@@ -5,8 +5,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from economics import *
 from imports import *
 
-from typing import Dict, Optional, List
-
 # Constants
 MIN_CASH_FOR_BUY = 10  # Minimum shares worth of cash needed to trigger buy
 PROGRESS_BAR_WIDTH = 40

@@ -3,7 +3,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imports import *
-from typing import Optional, Tuple, List, Dict
 
 # Constants
 PROFIT_MARGIN_THRESHOLDS = [
