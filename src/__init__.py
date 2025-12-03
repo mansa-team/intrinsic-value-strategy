@@ -19,7 +19,7 @@ Portfolio = [
     {'TICKER': 'LREN3', 'WEIGHT': 65},
 ]
 
-def load_data(portfolio: pd.DataFrame) -> tuple:
+def loadData(portfolio: pd.DataFrame) -> tuple:
     """
     Load price, LPA, and profit data for all tickers
     
@@ -27,25 +27,25 @@ def load_data(portfolio: pd.DataFrame) -> tuple:
         portfolio: DataFrame with tickers to load
     
     Returns:
-        (price_data, lpa_data, profit_data) as dicts
+        (priceData, lpaData, profitData) as dicts
     """
     print("="*70)
     print("LOADING DATA".center(70))
     print("="*70)
     
-    price_data = {t: getPriceData(t) for t in portfolio['TICKER']}
-    lpa_data = {t: getLPAData(t) for t in portfolio['TICKER']}
-    profit_data = {t: getProfitData(t) for t in portfolio['TICKER']}
+    priceData = {t: getPriceData(t) for t in portfolio['TICKER']}
+    lpaData = {t: getLPAData(t) for t in portfolio['TICKER']}
+    profitData = {t: getProfitData(t) for t in portfolio['TICKER']}
     
-    return price_data, lpa_data, profit_data
+    return priceData, lpaData, profitData
 
-def run_backtest(
+def runBacktest(
     config: dict,
     portfolio: pd.DataFrame,
-    price_data: dict,
-    lpa_data: dict,
-    profit_data: dict,
-    use_strategy: bool = True
+    priceData: dict,
+    lpaData: dict,
+    profitData: dict,
+    useStrategy: bool = True
 ) -> dict:
     """
     Execute single backtest
@@ -53,17 +53,17 @@ def run_backtest(
     Args:
         config: Configuration dict
         portfolio: Portfolio DataFrame
-        price_data, lpa_data, profit_data: Market data dicts
-        use_strategy: If True, apply Graham's strategy; else Buy & Hold
+        priceData, lpaData, profitData: Market data dicts
+        useStrategy: If True, apply Graham's strategy; else Buy & Hold
     
     Returns:
-        Results dict from Backtester.get_results()
+        Results dict from Backtester.getResults()
     """
-    bt = Backtester(config, portfolio, price_data, lpa_data, profit_data, use_strategy)
+    bt = Backtester(config, portfolio, priceData, lpaData, profitData, useStrategy)
     bt.backtest()
-    return bt.get_results()
+    return bt.getResults()
 
-def print_comparison(results_strat: dict, results_hold: dict) -> None:
+def printComparison(resultsStrat: dict, resultsHold: dict) -> None:
     """Print detailed comparison of strategy vs buy & hold"""
     print("\n" + "-"*70)
     print("BACKTEST COMPARISON".center(70))
@@ -71,24 +71,18 @@ def print_comparison(results_strat: dict, results_hold: dict) -> None:
     
     print(f"\n{'METRIC':<30} | {'STRATEGY':<15} | {'BUY & HOLD':<15} | {'DIFFERENCE':<15}")
     print("-" * 80)
-    print(f"{'Final Equity':<30} | R${results_strat['final_equity']:>13.2f} | R${results_hold['final_equity']:>13.2f} | R${results_strat['final_equity'] - results_hold['final_equity']:>13.2f}")
-    print(f"{'Total Return':<30} | {results_strat['total_return']:>14.2f}% | {results_hold['total_return']:>14.2f}% | {results_strat['total_return'] - results_hold['total_return']:>14.2f}%")
-    print(f"{'Number of Trades':<30} | {results_strat['num_trades']:>15} | {results_hold['num_trades']:>15} | {results_strat['num_trades'] - results_hold['num_trades']:>15}")
-    print(f"{'Total Dividends':<30} | R${results_strat['total_dividends']:>13.2f} | R${results_hold['total_dividends']:>13.2f} |")
+    print(f"{'Final Equity':<30} | R${resultsStrat['final_equity']:>13.2f} | R${resultsHold['final_equity']:>13.2f} | R${resultsStrat['final_equity'] - resultsHold['final_equity']:>13.2f}")
+    print(f"{'Total Return':<30} | {resultsStrat['total_return']:>14.2f}% | {resultsHold['total_return']:>14.2f}% | {resultsStrat['total_return'] - resultsHold['total_return']:>14.2f}%")
+    print(f"{'Number of Trades':<30} | {resultsStrat['num_trades']:>15} | {resultsHold['num_trades']:>15} | {resultsStrat['num_trades'] - resultsHold['num_trades']:>15}")
+    print(f"{'Total Dividends':<30} | R${resultsStrat['total_dividends']:>13.2f} | R${resultsHold['total_dividends']:>13.2f} |")
     print("-" * 80)
 
-def export_results(results_strat: dict, results_hold: dict) -> None:
+def exportResults(resultsStrat: dict, resultsHold: dict) -> None:
     """Export backtest results to CSV files"""
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     
-    results_strat['equity_curve'].to_csv(f'equity_STRATEGY_{ts}.csv', index=False)
-    results_hold['equity_curve'].to_csv(f'equity_BUYHOLD_{ts}.csv', index=False)
-    
-    #if not results_strat['trades'].empty:
-        #results_strat['trades'].to_csv(f'trades_STRATEGY_{ts}.csv', index=False)
-    
-    #if not results_hold['dividends'].empty:
-        #results_hold['dividends'].to_csv(f'dividends_{ts}.csv', index=False)
+    resultsStrat['equity_curve'].to_csv(f'equity_STRATEGY_{ts}.csv', index=False)
+    resultsHold['equity_curve'].to_csv(f'equity_BUYHOLD_{ts}.csv', index=False)
 
 if __name__ == "__main__":
     """Execute full backtest workflow"""
@@ -102,13 +96,12 @@ if __name__ == "__main__":
     portfolio = pd.DataFrame(Portfolio)
     
     # Load data
-    price_data, lpa_data, profit_data = load_data(portfolio)
+    priceData, lpaData, profitData = loadData(portfolio)
     
     # Run backtests
-    results_strat = run_backtest(config, portfolio, price_data, lpa_data, profit_data, use_strategy=True)
-    results_hold = run_backtest(config, portfolio, price_data, lpa_data, profit_data, use_strategy=False)
+    resultsStrat = runBacktest(config, portfolio, priceData, lpaData, profitData, useStrategy=True)
+    resultsHold = runBacktest(config, portfolio, priceData, lpaData, profitData, useStrategy=False)
     
     # Compare and export
-    if results_strat and results_hold:
-        #print_comparison(results_strat, results_hold)
-        export_results(results_strat, results_hold)
+    if resultsStrat and resultsHold:
+        exportResults(resultsStrat, resultsHold)
