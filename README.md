@@ -2,11 +2,47 @@
 
 A repository dedicated to applying Graham's intrinsic value strategy along with the picking of growing profits stocks (10 years Liquid Profits CAGR) to provide a higher return over the usual Buy & Hold strategies, being one of the key features of this project.
 
-Built for the [Mansa](https://github.com/mansa-team) project and designed for the automated wallet management system that will help the user with Buy and Hold strategies, maximizing their returns.
+Built for the [Mansa](https://github.com/mansa-team) project and designed for the automated wallet management system that will help the user with Buy & Hold strategies, maximizing their returns.
 
 ## Results
 
 ![Backtest Results](./assets/results.png)
+
+### Configuration
+
+1. Create `.env` file:
+```env
+STOCKSAPI_HOST=localhost
+STOCKSAPI_PORT=3200
+
+STOCKSAPI_PRIVATE.KEY=your_api_key_here
+```
+
+2. Edit portfolio in `src/__init__.py`:
+```python
+Portfolio = [
+    {'TICKER': 'ITUB3', 'WEIGHT': 90},
+    {'TICKER': 'PETR3', 'WEIGHT': 88},
+    {'TICKER': 'WEGE3', 'WEIGHT': 87},
+    # Add more stocks...
+]
+```
+
+3. Configure backtest:
+```python
+config = {
+    'SAFETY_MARGIN': 0.50,        # 50% margin
+    'INITIAL_CAPITAL': 10000,     # R$ 10,000
+    'START_DATE': '2016-01-01',
+    'END_DATE': '2024-12-31',
+}
+```
+
+### Run
+
+```bash
+python src/__init__.py
+```
 
 ## The Strategy
 
