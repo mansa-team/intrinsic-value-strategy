@@ -63,20 +63,6 @@ def runBacktest(
     bt.backtest()
     return bt.getResults()
 
-def printComparison(resultsStrat: dict, resultsHold: dict) -> None:
-    """Print detailed comparison of strategy vs buy & hold"""
-    print("\n" + "-"*70)
-    print("BACKTEST COMPARISON".center(70))
-    print("-"*70)
-    
-    print(f"\n{'METRIC':<30} | {'STRATEGY':<15} | {'BUY & HOLD':<15} | {'DIFFERENCE':<15}")
-    print("-" * 80)
-    print(f"{'Final Equity':<30} | R${resultsStrat['final_equity']:>13.2f} | R${resultsHold['final_equity']:>13.2f} | R${resultsStrat['final_equity'] - resultsHold['final_equity']:>13.2f}")
-    print(f"{'Total Return':<30} | {resultsStrat['total_return']:>14.2f}% | {resultsHold['total_return']:>14.2f}% | {resultsStrat['total_return'] - resultsHold['total_return']:>14.2f}%")
-    print(f"{'Number of Trades':<30} | {resultsStrat['num_trades']:>15} | {resultsHold['num_trades']:>15} | {resultsStrat['num_trades'] - resultsHold['num_trades']:>15}")
-    print(f"{'Total Dividends':<30} | R${resultsStrat['total_dividends']:>13.2f} | R${resultsHold['total_dividends']:>13.2f} |")
-    print("-" * 80)
-
 def exportResults(resultsStrat: dict, resultsHold: dict) -> None:
     """Export backtest results to CSV files"""
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')

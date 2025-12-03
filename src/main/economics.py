@@ -228,7 +228,7 @@ def generateTradingSignal(
 
 def calculatePartialSellLevels(
     intrinsicValue: Optional[float],
-    safetyMargin: float = 0.50
+    safetyMargin: float
 ) -> List[Dict]:
     """
     Generate Partial Sell Strategy Levels dynamically
@@ -238,7 +238,7 @@ def calculatePartialSellLevels(
     
     Args:
         intrinsicValue: the stock's intrinsic value
-        safetyMargin: safety margin as decimal (default 0.50 = 50%)
+        safetyMargin: safety margin as decimal
     
     Returns: 
         List of dicts with level configuration:
