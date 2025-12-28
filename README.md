@@ -272,8 +272,5 @@ Stock B: floor(4,444 / 20) = 222 shares
 
 ![Graham's Framework](https://encrypted-tbn3.gstatic.com/licensed-image?q=tbn:ANd9GcQzUKKfhlNERarNN5ZA40UL4iHo2MV6r52GZaYRbeUp1YB0xSggFqskrt6d-fbqDB-iTeA8J9r-zoWiVhJ0_tYvgSia9vnBvpdLtF0LxzzExu5nCLA)
 
----
-
 ## License
-
-GPL 3.0 MODIFIED Mansa Team's License. See LICENSE for details.
+Mansa Team's MODIFIED GPL 3.0 License. See LICENSE for details.
