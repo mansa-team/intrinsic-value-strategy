@@ -235,42 +235,14 @@ Stock A: floor(5,556 / 40) = 138 shares
 Stock B: floor(4,444 / 20) = 222 shares
 ```
 
-## Configuration Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| Safety Margin | 50% | Buy discount and sell premium |
-| Max Hold Time | 3 years | Maximum time to hold a position |
-| Profit Margin Spike | 17.5% | Threshold for partial sells |
-| Sell Percentage | 50% | Amount to sell per spike |
-| Min CAGR | 5% | Minimum profit growth required |
-| Rebalance Frequency | Monthly | Signal check interval |
-
-## Why This Strategy Works
-
-**Graham's Formula Benefits:**
-- Objective valuation based on earnings, not emotions
-- Growth-adjusted pricing (higher growth = higher value)
-- Market-rate adjusted (uses current SELIC, not fixed rates)
-
-**Growth Validation:**
-- Filters out stagnant or declining companies
-- Focuses on proven track records (10 years)
-- Avoids value traps
-
-**Safety Margin:**
-- Protects against estimation errors
-- Provides buffer for market downturns
-- Ensures profitable trades (50% minimum gain target)
-
-**Capital Allocation:**
-- Concentrates capital on most undervalued stocks
-- Proportional to discount factor
-- Maximizes return per dollar deployed
+## TODO
+- [ ] Refactor the codebase for a cleaner readability
+- [ ] Implement an API based system for scalability and use in actual production at Mansa
+- [ ] Implement a stock picking algorithm based on the user's profile
 
 ## Visual Overview
 
-![Graham's Framework](https://encrypted-tbn3.gstatic.com/licensed-image?q=tbn:ANd9GcQzUKKfhlNERarNN5ZA40UL4iHo2MV6r52GZaYRbeUp1YB0xSggFqskrt6d-fbqDB-iTeA8J9r-zoWiVhJ0_tYvgSia9vnBvpdLtF0LxzzExu5nCLA)
+![Strategy's Framework](./assets/strategy.png)
 
 ## License
 Mansa Team's MODIFIED GPL 3.0 License. See LICENSE for details.
