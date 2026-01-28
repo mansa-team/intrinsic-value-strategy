@@ -4,7 +4,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imports import *
 
-# Constants
 PROFIT_MARGIN_THRESHOLDS = [
     (1, 1.50, 0.50),
     (2, 1.675, 0.50),

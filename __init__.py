@@ -77,7 +77,6 @@ if __name__ == "__main__":
         print(f"Mansa (Stocks API) connected to http://{Config.STOCKS_API['HOST']}:{Config.STOCKS_API['PORT']}! ({latency:.2f}ms)")
     else: print(f"Mansa (Stocks API) returned status {response.status_code}")
 
-
     config = {
         'SAFETY_MARGIN': 0.50,
         'INITIAL_CAPITAL': 10000,
