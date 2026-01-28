@@ -1,6 +1,3 @@
-"""
-Main execution module for Graham's Value Strategy Backtester
-"""
 from imports import *
 from main.backtesting import Backtester, getPriceData, getLPAData, getProfitData
 
@@ -71,7 +68,16 @@ def exportResults(resultsStrat: dict, resultsHold: dict) -> None:
     resultsHold['equity_curve'].to_csv(f'equity_BUYHOLD_{ts}.csv', index=False)
 
 if __name__ == "__main__":
-    """Execute full backtest workflow"""
+    #$ STOCKS_API connection test
+    start_time = time.time()
+    response = requests.get(f"http://{Config.STOCKS_API['HOST']}:{Config.STOCKS_API['PORT']}/health", timeout=5)
+    latency = (time.time() - start_time) * 1000
+
+    if response.status_code == 200:
+        print(f"Mansa (Stocks API) connected to http://{Config.STOCKS_API['HOST']}:{Config.STOCKS_API['PORT']}! ({latency:.2f}ms)")
+    else: print(f"Mansa (Stocks API) returned status {response.status_code}")
+
+
     config = {
         'SAFETY_MARGIN': 0.50,
         'INITIAL_CAPITAL': 10000,
