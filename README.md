@@ -114,7 +114,7 @@ $$\text{Sell Price} = V \times (1 + m)$$
 
 Where **m** = Safety Margin (default: 50%)
 
-**Example (continuing above):**
+**Example:**
 ```
 V = R$ 96.84
 m = 0.50 (50%)
@@ -234,7 +234,7 @@ $$\text{PCD}_i = \frac{\text{WPP}_i}{\sum \text{WPP}} \times 100\%$$
 
 $$\text{Capital Allocated}_i = \text{PCD}_i \times \text{Total Capital}$$
 
-**Example (continuing above, R$ 10,000 total):**
+**Example (R$ 10,000 total):**
 ```
 Stock A: WPP_A = 217.8, PCD = (217.8 / 317.8) × 100% = 68.55%
          Capital = R$ 6,855
@@ -243,54 +243,62 @@ Stock B: WPP_B = 100, PCD = (100 / 317.8) × 100% = 31.45%
          Capital = R$ 3,145
 ```
 
+### Allocation Cap
+
+To prevent excessive concentration in deeply undervalued stocks, allocations are capped based on target weight:
+
+$$\text{Target Weight}_i = \frac{\text{SW}_i}{\sum \text{SW}} \times 100\%$$
+
+$$\text{Max Allocation}_i = \text{Target Weight}_i \times 1.5 \times \text{Total Portfolio Value}$$
+
+**Logic:** If a stock's value after a buy would exceed 150% of its target strategic allocation, the excess capital is redistributed to the next best buy signal. This prevents any single stock from "evaporating" others due to extreme momentary undervaluation.
+
 ### Shares to Buy
 
-$$\text{Shares} = \left\lfloor \frac{\text{Allocated Capital}}{\text{Current Price}} \right\rfloor$$
+$$\text{Shares}_i = \left\lfloor \frac{\min(\text{Capital Allocated}_i, \text{Max Allowed Investment}_i)}{\text{Current Price}_i} \right\rfloor$$
 
-**Example (continuing above):**
+**Example:**
 ```
-Stock A: floor(6,855 / 40) = 171 shares
-Stock B: floor(3,145 / 30) = 104 shares
+PCD requested: R$ 6,855
+Max Allowed Investment: R$ 4,500 (due to 1.5x cap)
+Current Price: R$ 40
+
+Shares = floor(min(6,855, 4,500) / 40) = 112 shares
 ```
 
 ## Capital Liquidation
 
 ### Weighted Sell Factor (WSF)
 
-The algorithm calculates a factor to determine liquidation priority. If the whole portfolio is undervalued, it triggers an "emergency" quadratic scaling to protect deep-value assets.
+$$\text{WSF}_i = \left(\frac{\text{Price}_i}{V_i}\right)^k \times \frac{101 - \text{SW}_i}{100}$$
 
-$$\text{WSF}_i = \left(\frac{\text{Price}_i}{V_i}\right)^k \times \frac{100}{\text{SW}_i}$$
-
-Where the exponent $k$ is determined by the portfolio state:
+Where $k$ is:
 
 $$k = \begin{cases} 
-1, & \text{if } \text{Price}_i \ge V_i \text{ (Standard Overvaluation)} \\ 
-2, & \text{if } \text{Price}_i < V_i \text{ (Emergency Protection)} 
+1, & \text{if } \text{Price}_i \ge V_i \text{ (Overvalued - Sell)} \\ 
+2, & \text{if } \text{Price}_i < V_i \text{ (Undervalued - Shield)} 
 \end{cases}$$
 
 **Logic Components:**
 
 | Component | Meaning | Impact |
 |-----------|---------|--------|
-| $k=1$ | Linear Exit | Standard profit taking proportional to overvaluation. |
-| $k=2$ | Quadratic Shield | Squaring a ratio $<1$ makes it much smaller, shielding undervalued stocks. |
-| $\frac{100}{\text{SW}}$ | Strategic Inverse | Lower Strategic Weight makes the stock more likely to be sold. |
+| $k=1$ | Linear Exit | Standard profit taking when overvalued. |
+| $k=2$ | Quadratic Shield | Dramatically reduces sell pressure on undervalued stocks. |
+| $\frac{\text{SW}}{100}$ | Strategic Priority | **Higher SW = More likely to be held**, lower SW = More likely to be sold. |
 
 **Example:**
 
 ```
-Stock A: Price = 145.26 (at Level 1 partial sell), V = 96.84, SW = 90
-  Price/V = 145.26/96.84 = 1.50 (overvalued)
-  k = 1 (Standard Overvaluation)
-  WSF_A = (1.50)^1 × (100/90) = 1.50 × 1.11 = 1.67
+Stock A: Price = 145.26 (overvalued), V = 96.84, SW = 90
+  k = 1
+  WSF_A = (1.50)^1 × (101 - 90)/100 = 1.50 × 0.11 = 0.165
 
-Stock B: Price = 40 (remains undervalued), V = 60, SW = 50
-  Price/V = 40/60 = 0.67 (undervalued)
-  k = 2 (Emergency Protection)
-  WSF_B = (0.67)^2 × (100/50) = 0.45 × 2.00 = 0.90
+Stock B: Price = 145.26 (overvalued), V = 96.84, SW = 10
+  k = 1
+  WSF_B = (1.50)^1 × (101 - 10)/100 = 1.50 × 0.91 = 1.365
 
-Result: Stock A's overvaluation triggers higher liquidation priority.
-        Stock B's quadratic protection (k=2) shields it from aggressive selling.
+Result: Stock B is liquidated first because it has lower strategic priority (SW).
 ```
 
 ### Proportional Liquidation Distribution (PLD)
@@ -301,18 +309,18 @@ $$\text{PLD}_i = \frac{\text{WSF}_i}{\sum \text{WSF}} \times 100\%$$
 
 $$\text{Shares to Sell}_i = \left\lceil \frac{\text{PLD}_i \times \text{Target Cash}}{\text{Price}_i} \right\rceil$$
 
-**Example (continuing above, Target Cash: R$ 5,000):**
+**Example (Target Cash: R$ 5,000):**
 
 ```
-Total WSF = 1.67 + 0.90 = 2.57
+Total WSF = 1.35 + 0.225 = 1.575
 
-Stock A: PLD_A = (1.67 / 2.57) × 100% = 64.98%
-         Target Cash = 64.98% × 5,000 = R$ 3,249
-         Shares to Sell = ceil(3,249 / 145.26) = 23 shares
+Stock A: PLD_A = (1.35 / 1.575) × 100% = 85.71%
+         Target Cash = 85.71% × 5,000 = R$ 4,286
+         Shares to Sell = ceil(4,286 / 145.26) = 30 shares
 
-Stock B: PLD_B = (0.90 / 2.57) × 100% = 35.02%
-         Target Cash = 35.02% × 5,000 = R$ 1,751
-         Shares to Sell = ceil(1,751 / 40) = 44 shares
+Stock B: PLD_B = (0.225 / 1.575) × 100% = 14.29%
+         Target Cash = 14.29% × 5,000 = R$ 714
+         Shares to Sell = ceil(714 / 40) = 18 shares
 
 Result: Stock A (overvalued) prioritized for liquidation.
         Stock B (undervalued) sells fewer shares due to quadratic protection.
@@ -375,7 +383,7 @@ $$\text{Trade Value}_i = \text{Rebalance Value}_i - \text{Current Position Value
 
 $$\text{Shares to Trade}_i = \left\lfloor\frac{|\text{Trade Value}_i|}{\text{Current Price}_i}\right\rfloor \text{ (with buy/sell sign)}$$
 
-**Example (continuing above):**
+**Example:**
 
 ```
 Rebalancing to Target Weights (when Drift = 5.71%):
@@ -427,10 +435,6 @@ Decision: Sell Stock A first (higher profit taking opportunity)
 - [ ] Refactor the codebase for a cleaner readability
 - [ ] A stock picking algorithm based on the user's profile and Mansa's critereas (preventing value-traps and bad stocks)
 - [ ] Implement an API based system for scalability and use in actual production at Mansa
-
-## Visual Overview
-
-![Strategy's Framework](./assets/strategy.png)
 
 ## License
 Mansa Team's MODIFIED GPL 3.0 License. See LICENSE for details.
