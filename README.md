@@ -342,7 +342,7 @@ $$\text{Max Drift} = \max(|\text{Drift}_i|) \text{ for all stocks}$$
 
 The portfolio requires explicit rebalancing when:
 
-$$\text{Max Drift} > \text{Rebalancing Threshold (typically 5\%)}$$
+$$\text{Max Drift} > 5\%$$
 
 **Example:**
 
