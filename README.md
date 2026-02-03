@@ -304,8 +304,11 @@ Result: Stock A (overvalued) prioritized for liquidation.
 
 ## TODO
 - [ ] Refactor the codebase for a cleaner readability
-- [ ] Implement an API based system for scalability and use in actual production at Mansa
+- [ ] Improve the WPP algorithm to work more as an cap and not as a grade for the stock, preventing "value traps"
+- [ ] Make the Partial Sell system prioritize the selling of stocks that are over the SW allocation, rebalancing the portfolio
+- [ ] Implement a proper rebalancing system for the portfolio
 - [ ] Implement a stock picking algorithm based on the user's profile
+- [ ] Implement an API based system for scalability and use in actual production at Mansa
 
 ## Visual Overview
 
