@@ -171,7 +171,7 @@ The system prioritizes selling stocks that exceed their target Strategic Weight 
 
 $$\text{Current Weight}_i = \frac{\text{Position Value}_i}{\text{Total Portfolio Value}} \times 100\%$$
 
-$$\text{Excess Weight}_i = \max\left(\text{Current Weight}_i - \frac{\text{SW}_i}{\sum \text{SW}} \times 100\%, 0\right)$$
+$$\text{Excess Weight}_i = \max\left(\text{Current Weight}_i - \frac{\text{SW}_i}{\sum \text{SW}} \times 100, 0\right)\%$$
 
 If $\text{Excess Weight}_i > 0$, the stock receives higher selling priority at each partial sell trigger.
 
