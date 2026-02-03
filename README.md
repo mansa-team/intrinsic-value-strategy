@@ -41,10 +41,10 @@ config = {
 ### Run
 
 ```bash
-python src/__init__.py
+python __init__.py
 ```
 
-## The Strategy
+## Trading Strategy
 
 ### Step 1: Calculate Intrinsic Value
 
@@ -233,6 +233,73 @@ $$\text{Shares} = \left\lfloor \frac{\text{Allocated Capital}}{\text{Current Pri
 ```
 Stock A: floor(5,556 / 40) = 138 shares
 Stock B: floor(4,444 / 20) = 222 shares
+```
+
+## Capital Liquidation
+
+### Weighted Sell Factor (WSF)
+
+The algorithm calculates a factor to determine liquidation priority. If the whole portfolio is undervalued, it triggers an "emergency" quadratic scaling to protect deep-value assets.
+
+$$\text{WSF}_i = \left(\frac{\text{Price}_i}{V_i}\right)^k \times \frac{100}{\text{SW}_i}$$
+
+Where the exponent $k$ is determined by the portfolio state:
+
+$$k = \begin{cases} 
+1, & \text{if } \text{Price}_i \ge V_i \text{ (Standard Overvaluation)} \\ 
+2, & \text{if } \text{Price}_i < V_i \text{ (Emergency Protection)} 
+\end{cases}$$
+
+**Logic Components:**
+
+| Component | Meaning | Impact |
+|-----------|---------|--------|
+| $k=1$ | Linear Exit | Standard profit taking proportional to overvaluation. |
+| $k=2$ | Quadratic Shield | Squaring a ratio $<1$ makes it much smaller, shielding undervalued stocks. |
+| $\frac{100}{\text{SW}}$ | Strategic Inverse | Lower Strategic Weight makes the stock more likely to be sold. |
+
+**Example:**
+
+```
+Stock A: Price = 100, V = 80, SW = 90
+  Price/V = 100/80 = 1.25 (overvalued)
+  k = 1 (Standard Overvaluation)
+  WSF_A = (1.25)^1 × (100/90) = 1.25 × 1.11 = 1.389
+
+Stock B: Price = 40, V = 50, SW = 50
+  Price/V = 40/50 = 0.80 (undervalued)
+  k = 2 (Emergency Protection)
+  WSF_B = (0.80)^2 × (100/50) = 0.64 × 2.00 = 1.28
+
+Result: Stock A's higher price/value ratio gives it higher priority for liquidation.
+        Stock B's quadratic protection (k=2) shields it from aggressive selling.
+```
+
+### Proportional Liquidation Distribution (PLD)
+
+Determine how much of the cash target is requested from each stock:
+
+$$\text{PLD}_i = \frac{\text{WSF}_i}{\sum \text{WSF}} \times 100\%$$
+
+$$\text{Shares to Sell}_i = \left\lceil \frac{\text{PLD}_i \times \text{Target Cash}}{\text{Price}_i} \right\rceil$$
+
+**Example (continuing above, Target Cash: R$ 5,000):**
+
+```
+Total WSF = 1.389 + 1.28 = 2.669
+
+Stock A: PLD_A = (1.389 / 2.669) × 100% = 52.04%
+         Target Cash = 52.04% × 5,000 = R$ 2,602
+         Shares to Sell = ceil(2,602 / 100) = 27 shares
+
+Stock B: PLD_B = (1.28 / 2.669) × 100% = 47.96%
+         Target Cash = 47.96% × 5,000 = R$ 2,398
+         Shares to Sell = ceil(2,398 / 40) = 60 shares
+
+Result: Stock A (overvalued) prioritized for liquidation.
+        Stock B (undervalued) sells fewer shares despite higher quantity,
+        because the ceiling function only rounds up when necessary to achieve
+        the proportional cash target, not arbitrarily.
 ```
 
 ## TODO
