@@ -70,6 +70,7 @@ Where:
 | z | Average SELIC rate over 10 years | Historical rate baseline for long-term valuation |
 
 **Example:**
+
 ```
 LPA = R$ 2.78
 x = 15% (CAGR)
@@ -80,6 +81,8 @@ V = (2.78 × (8.5 + 2×15) × 9.5) / 10.5
 V = (2.78 × 38.5 × 9.5) / 10.5
 V = 1,016.79 / 10.5
 V = R$ 96.84
+
+STOCK A INTRINSIC VALUE = R$ 96.84
 ```
 
 ### Step 2: Validate Growth (10-Year CAGR)
@@ -150,7 +153,7 @@ If Current_Price >= Sell_Price:
 
 ### Step 4: Partial Sell Strategy
 
-For every 17.5% increase above the 50% safety margin, sell 50% of position, logarithimically.
+For every 17.5% increase above the 50% safety margin, sell 50% of position, logarithmically.
 
 **Sell Levels:**
 
@@ -162,18 +165,36 @@ For every 17.5% increase above the 50% safety margin, sell 50% of position, loga
 | 4 | V × 2.025 | +102.5% | Sell 50% of remaining |
 | 5 | V × 2.20 | +120% | Sell remaining |
 
+**Rebalancing Priority:**
+
+The system prioritizes selling stocks that exceed their target Strategic Weight allocation:
+
+$$\text{Current Weight}_i = \frac{\text{Position Value}_i}{\text{Total Portfolio Value}} \times 100\%$$
+
+$$\text{Excess Weight}_i = \max\left(\text{Current Weight}_i - \frac{\text{SW}_i}{\sum \text{SW}} \times 100\%, 0\right)$$
+
+If $\text{Excess Weight}_i > 0$, the stock receives higher selling priority at each partial sell trigger.
+
 **Example:**
+
 ```
 V = R$ 96.84
-Initial position: 1,000 shares
+Initial position: 1,000 shares (Stock A)
+Portfolio SW allocation target: 90% (Stock A), 10% (Stock B)
+Current portfolio value: R$ 100,000
+Current allocation: Stock A = 95%, Stock B = 5%
+
+Excess Weight_A = 95% - 90% = 5% overweight
 
 Level 1: Price = R$ 145.26
-  Sell 500 shares
+  Stock A is overweight by 5%, gets priority for selling
+  Sell 500 shares to rebalance toward 90% target
 
 Level 2: Price = R$ 171.31
-  Sell 250 shares
-
-Result: Locked in profits at each level
+  Rebalancing adjusted allocation closer to target
+  Sell remaining shares based on level 2 trigger
+  
+Result: Profits locked while maintaining target portfolio allocation
 ```
 
 ## Capital Allocation
@@ -194,17 +215,16 @@ The Strategic Weight (SW) represents how important a stock is to your portfolio 
 **Example (2 stocks, using Strategic Weights):**
 
 ```
-Stock A: IV = 100, Price = 40, SW = 90 (High Strategic Importance)
-  Discount Factor = 100/40 = 2.5x
-  WPP_A = 2.5 × 90 = 225
+Stock A (continuing from Step 1):
+  IV = R$ 96.84, Current Price = R$ 40, SW = 90
+  Discount Factor = 96.84 / 40 = 2.42x
+  WPP_A = 2.42 × 90 = 217.8
 
-Stock B: IV = 50, Price = 20, SW = 50 (Medium Strategic Importance)
-  Discount Factor = 50/20 = 2.5x
-  WPP_B = 2.5 × 50 = 125
+Stock B:
+  IV = R$ 60, Current Price = R$ 30, SW = 50
+  Discount Factor = 60 / 30 = 2.0x
+  WPP_B = 2.0 × 50 = 100
 ```
-
-**Key Insight:**
-Although both stocks have the same discount factor (2.5x), Stock A receives higher WPP (225 vs 125) due to its greater Strategic Weight (90 vs 50). This allows you to concentrate capital on strategically important positions while still respecting market valuations.
 
 ### Proportional Capital Distribution (PCD)
 
@@ -216,13 +236,11 @@ $$\text{Capital Allocated}_i = \text{PCD}_i \times \text{Total Capital}$$
 
 **Example (continuing above, R$ 10,000 total):**
 ```
-Stock A: PCD = (12,500 / 22,500) × 100% = 55.56%
-         Capital = R$ 5,556
+Stock A: WPP_A = 217.8, PCD = (217.8 / 317.8) × 100% = 68.55%
+         Capital = R$ 6,855
 
-Stock B: PCD = (10,000 / 22,500) × 100% = 44.44%
-         Capital = R$ 4,444
-
-Result: More capital to the more undervalued stock
+Stock B: WPP_B = 100, PCD = (100 / 317.8) × 100% = 31.45%
+         Capital = R$ 3,145
 ```
 
 ### Shares to Buy
@@ -231,8 +249,8 @@ $$\text{Shares} = \left\lfloor \frac{\text{Allocated Capital}}{\text{Current Pri
 
 **Example (continuing above):**
 ```
-Stock A: floor(5,556 / 40) = 138 shares
-Stock B: floor(4,444 / 20) = 222 shares
+Stock A: floor(6,855 / 40) = 171 shares
+Stock B: floor(3,145 / 30) = 104 shares
 ```
 
 ## Capital Liquidation
@@ -261,17 +279,17 @@ $$k = \begin{cases}
 **Example:**
 
 ```
-Stock A: Price = 100, V = 80, SW = 90
-  Price/V = 100/80 = 1.25 (overvalued)
+Stock A: Price = 145.26 (at Level 1 partial sell), V = 96.84, SW = 90
+  Price/V = 145.26/96.84 = 1.50 (overvalued)
   k = 1 (Standard Overvaluation)
-  WSF_A = (1.25)^1 × (100/90) = 1.25 × 1.11 = 1.389
+  WSF_A = (1.50)^1 × (100/90) = 1.50 × 1.11 = 1.67
 
-Stock B: Price = 40, V = 50, SW = 50
-  Price/V = 40/50 = 0.80 (undervalued)
+Stock B: Price = 40 (remains undervalued), V = 60, SW = 50
+  Price/V = 40/60 = 0.67 (undervalued)
   k = 2 (Emergency Protection)
-  WSF_B = (0.80)^2 × (100/50) = 0.64 × 2.00 = 1.28
+  WSF_B = (0.67)^2 × (100/50) = 0.45 × 2.00 = 0.90
 
-Result: Stock A's higher price/value ratio gives it higher priority for liquidation.
+Result: Stock A's overvaluation triggers higher liquidation priority.
         Stock B's quadratic protection (k=2) shields it from aggressive selling.
 ```
 
@@ -286,29 +304,129 @@ $$\text{Shares to Sell}_i = \left\lceil \frac{\text{PLD}_i \times \text{Target C
 **Example (continuing above, Target Cash: R$ 5,000):**
 
 ```
-Total WSF = 1.389 + 1.28 = 2.669
+Total WSF = 1.67 + 0.90 = 2.57
 
-Stock A: PLD_A = (1.389 / 2.669) × 100% = 52.04%
-         Target Cash = 52.04% × 5,000 = R$ 2,602
-         Shares to Sell = ceil(2,602 / 100) = 27 shares
+Stock A: PLD_A = (1.67 / 2.57) × 100% = 64.98%
+         Target Cash = 64.98% × 5,000 = R$ 3,249
+         Shares to Sell = ceil(3,249 / 145.26) = 23 shares
 
-Stock B: PLD_B = (1.28 / 2.669) × 100% = 47.96%
-         Target Cash = 47.96% × 5,000 = R$ 2,398
-         Shares to Sell = ceil(2,398 / 40) = 60 shares
+Stock B: PLD_B = (0.90 / 2.57) × 100% = 35.02%
+         Target Cash = 35.02% × 5,000 = R$ 1,751
+         Shares to Sell = ceil(1,751 / 40) = 44 shares
 
 Result: Stock A (overvalued) prioritized for liquidation.
-        Stock B (undervalued) sells fewer shares despite higher quantity,
-        because the ceiling function only rounds up when necessary to achieve
-        the proportional cash target, not arbitrarily.
+        Stock B (undervalued) sells fewer shares due to quadratic protection.
+```
+
+## Portfolio Rebalancing
+
+### Target Allocation Monitoring
+
+Calculate the deviation of each stock from its target allocation:
+
+$$\text{Target Weight}_i = \frac{\text{SW}_i}{\sum \text{SW}} \times 100\%$$
+
+$$\text{Current Weight}_i = \frac{\text{Position Value}_i}{\text{Total Portfolio Value}} \times 100\%$$
+
+$$\text{Drift}_i = \text{Current Weight}_i - \text{Target Weight}_i$$
+
+$$\text{Max Drift} = \max(|\text{Drift}_i|) \text{ for all stocks}$$
+
+The portfolio requires explicit rebalancing when:
+
+$$\text{Max Drift} > \text{Rebalancing Threshold (typically 5\%)}$$
+
+**Example:**
+
+```
+Portfolio Strategic Weights:
+  Stock A: SW = 90
+  Stock B: SW = 50
+  Total SW = 140
+
+Target Weights:
+  Stock A: 90/140 = 64.29%
+  Stock B: 50/140 = 35.71%
+
+Current Portfolio Value: R$ 100,000
+Current Holdings (after Stock A price surge):
+  Stock A: R$ 68,000 (68% of portfolio) at price R$ 145.26
+  Stock B: R$ 32,000 (32% of portfolio) at price R$ 40
+
+Drift Calculation:
+  Drift_A = 68% - 64.29% = +3.71% (overweight)
+  Drift_B = 32% - 35.71% = -3.71% (underweight)
+  Max Drift = 3.71% < 5% threshold → NO REBALANCE NEEDED YET
+
+If Stock A rises further to reach +5.71% drift:
+  Max Drift = 5.71% > 5% threshold → REBALANCE REQUIRED
+```
+
+### Rebalancing Execution
+
+When rebalancing is triggered, the system calculates required trades to restore target weights:
+
+$$\text{Rebalance Value}_i = \text{Target Weight}_i \times \text{Total Portfolio Value}$$
+
+$$\text{Trade Value}_i = \text{Rebalance Value}_i - \text{Current Position Value}_i$$
+
+- If $\text{Trade Value}_i > 0$: Buy stock $i$
+- If $\text{Trade Value}_i < 0$: Sell stock $i$
+
+$$\text{Shares to Trade}_i = \left\lfloor\frac{|\text{Trade Value}_i|}{\text{Current Price}_i}\right\rfloor \text{ (with buy/sell sign)}$$
+
+**Example (continuing above):**
+
+```
+Rebalancing to Target Weights (when Drift = 5.71%):
+Portfolio Value: R$ 100,000
+
+Stock A Target Value: 64.29% × 100,000 = R$ 64,290
+  Current Value: R$ 73,000 (at R$ 145.26 per share)
+  Trade Value: R$ 64,290 - R$ 73,000 = -R$ 8,710 (SELL)
+  Current Price: R$ 145.26
+  Shares to Sell: floor(8,710 / 145.26) = 60 shares
+
+Stock B Target Value: 35.71% × 100,000 = R$ 35,710
+  Current Value: R$ 28,000
+  Trade Value: R$ 35,710 - R$ 28,000 = +R$ 7,710 (BUY)
+  Current Price: R$ 40
+  Shares to Buy: floor(7,710 / 40) = 192 shares
+
+Result After Rebalancing:
+  Stock A: 73,000 - (60 × 145.26) = R$ 64,284 (64.28% of portfolio) ✓
+  Stock B: 28,000 + (192 × 40) = R$ 35,680 (35.68% of portfolio) ✓
+  Max Drift: 0.04% < 5% threshold ✓ REBALANCED
+```
+
+### Rebalancing with Profit Taking
+
+When rebalancing is triggered by an overweight position that is also overvalued (Price > Intrinsic Value), the system prioritizes profit taking:
+
+$$\text{Priority Score}_i = \text{Drift}_i \times \left(\frac{\text{Current Price}_i}{V_i} - 1\right)$$
+
+Higher priority scores indicate positions that should be sold to both rebalance and realize gains.
+
+**Example (Profit Taking Priority):**
+
+```
+Stock A: Drift = +5.71%, Price = R$ 145.26, V = R$ 96.84
+  Profit Margin = (145.26/96.84) - 1 = 50%
+  Priority Score_A = 5.71% × 50% = 2.86%
+
+Stock B: Drift = +2%, Price = R$ 45, V = R$ 60
+  Profit Margin = (45/60) - 1 = -25% (undervalued)
+  Priority Score_B = 2% × (-25%) = -0.50%
+
+Decision: Sell Stock A first (higher profit taking opportunity)
+          Reduce selling pressure on Stock B (despite slightly overweight,
+          it's undervalued and should be preserved)
 ```
 
 ## TODO
 - [ ] Refactor the codebase for a cleaner readability
-- [ ] Improve the WPP algorithm to work more as an cap and not as a grade for the stock, preventing "value traps"
-- [ ] Make the Partial Sell system prioritize the selling of stocks that are over the SW allocation, rebalancing the portfolio
-- [ ] Implement a proper rebalancing system for the portfolio
-- [ ] Implement a stock picking algorithm based on the user's profile and Mansa's critereas for stock picking
-- [ ] Implement an API based system for scalability and use in actual production at Mansa's backend
+- [ ] A stock picking algorithm based on the user's profile and Mansa's critereas (preventing value-traps and bad stocks)
+- [ ] Implement an API based system for scalability and use in actual production at Mansa
 
 ## Visual Overview
 
